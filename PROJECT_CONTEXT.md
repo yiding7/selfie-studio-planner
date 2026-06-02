@@ -1,72 +1,89 @@
-# 项目上下文
+# Project Context
 
-## 当前目标
+This file is a quick handoff note for Codex and other AI coding agents. Keep it current with every meaningful commit.
 
-自拍灵感是一个用于生成低预算、自助拍摄方案的 Web app。用户选择拍摄主体并输入主题 prompt，系统生成主题方案、参考意图、服装道具、布光布景、姿势构图、后期建议，以及四组图片参考。
+## Product Goal
 
-## 架构边界
+Selfie Studio Planner is a small web app for low-budget, non-professional photo shoot planning. Users choose a subject type and provide a theme prompt or use an I'm Feeling Lucky flow. The app returns a practical shoot plan with visual direction, clothing, props, scenes, lighting, posing, composition, post-processing, shopping, shot lists, and grouped image references.
 
-- LLM 只负责分析 prompt、生成主题方案、referenceIntent、分组 searchQueries 和 screeningRules。
-- LLM 不负责联网搜索图片，不返回图片直链或来源页。
-- 图片检索只使用 Brave Search API。
-- 后端负责 query generation、Brave image search、规则评分、去重、质量筛选、主体匹配、分组 top images。
-- 前端负责展示生成结果、四组图片、来源链接、放大预览、导出 PNG/PDF。
+## Target Scope
 
-## 图片 pipeline
+The tool is for beginners using phones, phone remotes, entry-level mirrorless cameras, simple lights, low-cost props, paper backdrops, ordinary homes, and accessible public locations. It is not intended for professional photographers or production teams.
+
+## Architecture Boundary
+
+- The frontend is English.
+- Code-facing strings, schema fields, and the system prompt are English. Generated plan content follows a backend-detected required output language: Chinese prompts produce Simplified Chinese, English prompts produce English, and lucky/no-prompt generation defaults to English. JSON field names remain English.
+- README is bilingual, English first, with a manually expandable Chinese section for GitHub rendering.
+- The LLM generates the plan, referenceIntent, grouped searchQueries, and screeningRules.
+- The LLM must not browse for images and must not return image URLs.
+- Image search uses Brave Search API only.
+- The backend owns query expansion, Brave image search, rule scoring, dedupe, lightweight subject matching, and grouped top-image assignment.
+- The frontend renders the final plan, grouped image references, source links, image modal, PNG export, and PDF export.
+
+## Image Pipeline
 
 ```text
 referenceIntent -> query generation -> Brave image search -> rule scoring -> grouped top images
 ```
 
-四个图片分组都应展示候选图：
+Image groups:
 
-- 成品参考
-- 服装参考
-- 道具参考
-- 场景参考
+- Final Visual References
+- Clothing References
+- Prop References
+- Scene References
 
-## 支持的 API
+## Supported APIs
 
-LLM:
+LLM providers:
 
 - ZenMux
 - OpenAI
-- Gemini
-- Anthropic Claude
-- 通用 OpenAI-compatible chat/responses 配置
+- Gemini through Google's OpenAI-compatible endpoint
+- Anthropic Claude Messages API
+- Generic OpenAI-compatible chat/responses providers
 
-Image API:
+Image provider:
 
 - Brave Search API only
 
-已明确移除或不再支持：
+Removed or intentionally unsupported:
 
-- LLM web/image search 图片链路
+- LLM web/image search image retrieval
 - Vertex AI Search
 - Google Custom Search JSON API
 - SerpAPI Google Images
 - Bing Image Search
 - Wikimedia Commons fallback
 
-## 配置原则
+## Configuration Rules
 
-- `.env` 不提交。
-- API key 只在后端环境变量中读取，不进入前端。
-- 未配置 LLM API 时，生成不可用并返回配置提示。
-- 未配置 Brave Search API 时，前端禁用“图片搜索”，文本方案仍可生成。
+- `.env` is not committed.
+- Backend reads API keys from environment variables.
+- Frontend never receives API keys.
+- Missing LLM API disables generation.
+- Missing Brave Search API disables Image Search but still allows text-only generation.
 
-## 推荐本地运行
+## Main Files
 
-```bash
-cp .env.example .env
-npm start
+- `server.js`: HTTP server, LLM provider config, system prompt in `buildPrompt()`, Brave image pipeline, image proxy, API routes.
+- `public/index.html`: static app shell.
+- `public/app.js`: frontend state, rendering, image preview, exports.
+- `public/styles.css`: UI styling and export layout.
+- `.env.example`: supported environment variables.
+- `README.md`: public documentation.
+
+## Prompt Customization
+
+The main system prompt lives in:
+
+```text
+server.js -> buildPrompt()
 ```
 
-打开 `http://127.0.0.1:5173`。
+When changing it, keep the JSON contract stable unless the backend render/scoring code is updated at the same time. Preserve the current language policy unless intentionally changing product behavior: detect prompt language server-side, inject a required output language into the prompt, and keep JSON field names in English. The key contract fields are `referenceGroups`, `searchQueries`, and `screeningRules`.
 
-## 继续开发注意事项
+## Current Export Behavior
 
-- 不要重新引入多图片搜索 provider，除非产品方向明确改变。
-- 不要让 LLM 直接返回图片 URL；图片 URL 质量和可用性由 Brave + 后端规则控制。
-- 若要提高图片质量，优先改 query generation、scoring、dedupe、source/domain scoring，而不是把更多 API 混进来。
-- 若要部署给亲友使用，优先考虑后端限流和 API key 滥用保护，再考虑公开 URL。
+PNG captures the generated plan. PDF uses html2pdf.js with `enableLinks: true`; reference image tiles include source links so PDFs can preserve clickable source URLs when supported by the viewer.

@@ -20,7 +20,7 @@ const mimeTypes = {
 };
 const allowedImageProtocols = new Set(["http:", "https:"]);
 
-const photoTypes = new Set(["单人", "情侣", "三口之家", "亲子", "全家福", "好友", "闺蜜", "多人合照"]);
+const photoTypes = new Set(["solo", "couple", "family-of-three", "parent-child", "family", "friends", "best-friends", "group"]);
 async function loadEnv() {
   try {
     const env = await readFile(join(__dirname, ".env"), "utf8");
@@ -68,95 +68,101 @@ async function readBody(req) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
 }
 
-function buildPrompt({ photoType, prompt, mode }) {
-  const userIdea = prompt?.trim()
-    ? `用户自己的主题想法：${prompt.trim()}`
-    : "用户没有提供主题，请像“试试手气”一样随机选择一个适合低预算、自助拍摄的主题。";
+function detectOutputLanguage(prompt = "") {
+  return /[\u3400-\u9fff]/u.test(prompt) ? "Simplified Chinese" : "English";
+}
 
-  return `你是一个懂手机摄影、低预算布景、情侣/家庭纪念照策划的创意导演。
-请为「${photoType}」生成一套自拍或自助拍摄方案。${userIdea}
-生成要求：
-- 输出语言必须使用简体中文。即使用户 prompt 是英文，也必须用简体中文回答。
-- 不要影楼模板感，要适合普通家庭、手机、手机遥控器、少量道具、便宜服装或自有衣服。
-- 具体、可执行、不要空泛。
-- ${mode === "lucky" ? "主题需要带一点随机惊喜，但仍然容易执行。" : "尽量尊重用户 prompt 的主题方向。"}
-- 如果用户提到具名电影、电视剧、小说改编、音乐视频、艺术家、设计师、历史时期或服装年代，必须先把建议锚定到可识别参考，再生成通用方案。
-- 影视参考优先：FilmGrab、IMDb media pages、TMDB image metadata、官方片方/剧集页面、BFI 或电影档案元数据。
-- 服装/造型参考优先：The Met Costume Institute / The Met Open Access、V&A Fashion Collection、Europeana Fashion。
-- 历史日常与真实场景优先：Library of Congress Prints & Photographs、Europeana、真实地点照片、纪录照片。
-- 布光、相机设置、构图和低预算拍摄建议优先：Strobist、ASC / American Cinematographer、Cambridge in Colour、Kodak technical / filmmaker guides。
-- 不要编造引用、剧照、服装名、品牌款式或历史事实。证据弱时必须说明“近似参考”，并给更安全的搜索关键词。
-- 必须严格匹配用户选择的拍摄主体。选择“情侣”时，成品参考、服装参考和姿势建议必须优先适合情侣双人构图，默认一男一女或明确 romantic pair / two people，除非用户指定其他性别构成。
-- 成品参考：如果 prompt 提到具名电影/剧/小说改编/艺术家/设计师，优先该作品及官方/影视化视觉材料；具名电影优先剧照、宣传照、海报、production images，不要用无关风景、插画、AI 图、产品图或单人图替代情侣/家庭/群像参考。
-- 服装参考：必须覆盖每个必要主体。情侣默认同时提供男性与女性 outfit directions、具体 item names、可购买/搜索关键词、关键配饰。历史或年代主题要尽量用博物馆/服装档案校验廓形、面料、配饰和色彩；不要过度现代 cosplay 化，除非用户要求 party costume。
-- 道具参考：必须给历史上更稳妥的物件名称、英文/中文搜索关键词、入镜方式（手持、桌面、背景、佩戴、墙面装饰等），并提醒会穿帮的时代错误物品。
-- 场景参考：优先真实地点、真实室内、影视剧照、纪录照片；不要把插画、概念图、AI 图、产品渲染当作真实场景。若用户说“在家拍摄”，把场景翻译成低预算家中布景；若没说在家，同时给真实地点选项和 DIY 简化替代。
-- 布光布景：必须给文字版简单灯位图：人物位置、相机位置、主光、补光/反光、背景距离。优先窗光、台灯、LED 小灯、白墙、泡沫板、窗帘柔光、纯色背景纸、手机三脚架、蓝牙遥控。解释为什么光线适合主题：硬/软、方向、反差、阴影边缘、色温。
-- 后期处理：必须给 Snapseed / Instagram / 手机原生编辑可执行步骤：裁切比例、曝光、高光、阴影、暖色、对比度、饱和度、颗粒、暗角、色彩方向。
-- 你不负责搜索或返回图片链接、来源页链接或任何图片直链。图片检索由后端独立完成。
-- 你必须为 4 个 referenceGroups 分别提供 searchQueries 数组，供后端图片搜索使用。searchQueries 必须具体、可检索，优先包含作品名/年代/风格/物品名/地点/主体类型，不要写抽象形容词。
-- 每个 referenceGroups 必须提供 screeningRules 数组，描述后端筛选图片时应优先/排除什么：例如主体人数、男女/家庭/好友构成、真实摄影、电影剧照、服装廓形、道具年代、排除插画/AI/产品渲染等。
-只返回 JSON，不要 Markdown。字段结构必须是：
+function buildPrompt({ photoType, prompt, mode }) {
+  const outputLanguage = detectOutputLanguage(prompt);
+  const userIdea = prompt?.trim()
+    ? `User theme prompt: ${prompt.trim()}`
+    : "The user did not provide a theme. Choose a random but practical low-budget self-shoot concept, similar to an I'm Feeling Lucky dice roll.";
+
+  return `You are a practical creative director for non-professional self portraits, couple photos, family photos, and friend-group portraits.
+Create a low-budget self-shoot plan for the subject type "${photoType}". ${userIdea}
+
+Core requirements:
+- Required output language for all user-facing JSON values: ${outputLanguage}. This is mandatory. If the required output language is Simplified Chinese, write all titles, notes, section text, shopping lists, and shot lists in Simplified Chinese. Keep JSON field names and referenceGroups titles exactly as specified in English regardless of content language.
+- Avoid standardized studio-template aesthetics. The plan must work for ordinary homes or accessible locations, phones or entry-level mirrorless cameras, remote shutters, low-cost props, affordable clothing, or clothes the users already own.
+- Be concrete, executable, and beginner-friendly. Do not give vague advice.
+- ${mode === "lucky" ? "The theme should include a small sense of surprise while remaining easy to execute." : "Respect the user's prompt direction as much as possible."}
+- If the user mentions a named film, TV series, novel adaptation, music video, artist, designer, historical period, or fashion era, anchor the plan in identifiable references before generating generic ideas.
+- Film and moving-image reference priority: FilmGrab, IMDb media pages, TMDB image metadata, official studio/show pages, BFI, or film archive metadata.
+- Fashion and costume reference priority: The Met Costume Institute / The Met Open Access, V&A Fashion Collection, Europeana Fashion.
+- Historical everyday-life and real-place reference priority: Library of Congress Prints & Photographs, Europeana, real location photos, documentary photos.
+- Lighting, camera setup, composition, and low-budget technique priority: Strobist, ASC / American Cinematographer, Cambridge in Colour, Kodak technical or filmmaker guides.
+- Do not invent citations, film stills, fashion item names, brand/model names, or historical facts. If evidence is weak, label the suggestion as approximate and provide safer search keywords.
+- Match the selected subject type strictly. If the subject type is "couple", final references, clothing, and pose guidance must fit a two-person romantic couple composition by default, usually one masculine-presenting and one feminine-presenting person unless the user specifies otherwise.
+- Final visual references: for named films/TV/novel adaptations/artists/designers, prioritize official/adapted visual material. For named films, prefer stills, promotional stills, posters, and production images. Avoid unrelated landscapes, illustrations, AI art, product images, or solo references when the selected subject requires a couple/family/group.
+- Clothing references: cover every required subject. For "couple", provide both masculine and feminine outfit directions, concrete item names, purchase/search keywords, and key accessories. For period themes, use museum/fashion-archive logic for silhouettes, fabrics, accessories, and colors. Do not overfit modern cosplay unless the user asks for party-costume styling.
+- Props references: provide historically safer object names, English search keywords, frame use (handheld, tabletop, background, wearable, wall decor, etc.), and anachronism warnings.
+- Scene references: prefer real locations, real interiors, film stills, and documentary photos. Do not treat illustrations, concept art, AI images, or product renders as real scene references. If the user says they will shoot at home, translate the scene into a low-budget home setup. If not, provide both real-location options and simplified DIY alternatives.
+- Lighting setup: include a simple text diagram: subject position, camera position, key light, fill/reflection, and background distance. Prioritize window light, desk lamps, small LED panels, white walls, foam board, curtain diffusion, paper backdrops, phone tripods, and Bluetooth remotes. Explain why the light fits the theme: hard/soft quality, direction, contrast, shadow edge, and color temperature.
+- Post-processing: provide executable steps for Snapseed, Instagram, or native phone editing: crop ratio, exposure, highlights, shadows, warmth, contrast, saturation, grain, vignette, and color direction.
+- You do not search for images, return image links, source-page links, or direct image URLs. Image retrieval is handled by the backend.
+- Every referenceGroups entry must include a searchQueries array for backend image search. Queries must be concrete and searchable, preferably including named work, era, style, object, location, and subject type. Avoid abstract adjectives alone.
+- Every referenceGroups entry must include screeningRules for backend image filtering, such as subject count, couple/family/friends composition, real photography, film stills, clothing silhouette, prop era, and exclusions like illustration/AI/product render.
+
+Return JSON only. Do not return Markdown. The JSON shape must be:
 {
   "referenceIntent": "named_work | period | fashion_era | location | generic",
-  "theme": "短主题名",
-  "subtitle": "一句话氛围描述，包含拍摄主体",
+  "theme": "Short theme name",
+  "subtitle": "One-sentence mood description that includes the subject type",
   "palette": ["#hex", "#hex", "#hex"],
   "referenceGroups": [
     {
-      "title": "成品参考",
-      "description": "该组参考的筛选方向",
+      "title": "Final Visual References",
+      "description": "Filtering direction for this reference group",
       "searchQueries": ["English image query 1", "English image query 2", "English image query 3", "English image query 4"],
-      "screeningRules": ["优先规则1", "排除规则1"],
+      "screeningRules": ["Priority rule 1", "Exclusion rule 1"],
       "items": [
-        {"title":"参考标题1","matchStrength":"strong | weak","weakReason":"弱参考原因或空字符串","searchQuery":"English image search query","keywords":["关键词1","关键词2"],"note":"为什么适合这个主题"}
+        {"title":"Reference title 1","matchStrength":"strong | weak","weakReason":"Weak-reference reason or empty string","searchQuery":"English image search query","keywords":["keyword 1","keyword 2"],"note":"Why it fits this theme"}
       ]
     },
     {
-      "title": "服装参考",
-      "description": "服装时代、廓形、材质和搭配方向",
+      "title": "Clothing References",
+      "description": "Era, silhouette, materials, and styling direction",
       "searchQueries": ["English clothing query 1", "English clothing query 2", "English clothing query 3", "English clothing query 4"],
-      "screeningRules": ["优先规则1", "排除规则1"],
+      "screeningRules": ["Priority rule 1", "Exclusion rule 1"],
       "items": [
-        {"title":"具体服装或饰品名","forSubject":"男性/女性/人物A/人物B/全体","matchStrength":"strong | weak","weakReason":"弱参考原因或空字符串","searchQuery":"English fashion archive search query","keywords":["可购买或搜索的具体名称","经典品牌/款式如有把握才写"],"note":"如何低成本复刻"}
+        {"title":"Specific clothing or accessory name","forSubject":"masculine subject / feminine subject / person A / person B / everyone","matchStrength":"strong | weak","weakReason":"Weak-reference reason or empty string","searchQuery":"English fashion archive search query","keywords":["specific purchase/search term","classic brand/model only if certain"],"note":"How to recreate it on a low budget"}
       ]
     },
     {
-      "title": "道具参考",
-      "description": "发型、配饰、文化符号、时代产品和流行物件",
+      "title": "Prop References",
+      "description": "Hair, accessories, cultural symbols, period objects, and popular products",
       "searchQueries": ["English prop query 1", "English prop query 2", "English prop query 3", "English prop query 4"],
-      "screeningRules": ["优先规则1", "排除规则1"],
+      "screeningRules": ["Priority rule 1", "Exclusion rule 1"],
       "items": [
-        {"title":"具体文化物件或造型","frameUse":"手持/桌面/背景/佩戴/墙面装饰","anachronismWarning":"会穿帮的物品提醒或空字符串","searchQuery":"English cultural object search query","keywords":["物品名","年代","搜索词"],"note":"如何入镜"}
+        {"title":"Specific cultural object or styling element","frameUse":"handheld / tabletop / background / wearable / wall decor","anachronismWarning":"Era-breaking warning or empty string","searchQuery":"English cultural object search query","keywords":["object name","era","search term"],"note":"How to place it in frame"}
       ]
     },
     {
-      "title": "场景参考",
-      "description": "室内/室外地点、背景、建筑、环境氛围",
+      "title": "Scene References",
+      "description": "Indoor/outdoor locations, background, architecture, and environmental mood",
       "searchQueries": ["English scene query 1", "English scene query 2", "English scene query 3", "English scene query 4"],
-      "screeningRules": ["优先规则1", "排除规则1"],
+      "screeningRules": ["Priority rule 1", "Exclusion rule 1"],
       "items": [
-        {"title":"场景标题","matchStrength":"strong | weak","weakReason":"弱参考原因或空字符串","searchQuery":"English location or set design search query","keywords":["地点类型","背景元素"],"note":"怎样找相似地点或在家低成本复刻"}
+        {"title":"Scene title","matchStrength":"strong | weak","weakReason":"Weak-reference reason or empty string","searchQuery":"English location or set design search query","keywords":["location type","background element"],"note":"How to find a similar location or recreate it at home"}
       ]
     }
   ],
   "sections": {
-    "成品参考": ["要点1", "要点2", "要点3"],
-    "服装": ["要点1", "要点2", "要点3"],
-    "道具": ["要点1", "要点2", "要点3"],
-    "拍摄道具": ["手机/相机支架、遥控器、背景、地面、反光板、补光灯等执行建议"],
-    "布光布景": ["必须包含文字灯位图：人物位置、相机位置、主光、补光/反光、背景距离"],
-    "表情姿势": ["要点1", "要点2", "要点3"],
-    "构图": ["要点1", "要点2", "要点3"],
-    "后期处理": ["必须给 Snapseed / Instagram 可执行步骤；如模仿电影或年代风格，说明裁切比例、颗粒、色温、对比度、饱和度、暗角方向"]
+    "Final Visual Direction": ["Point 1", "Point 2", "Point 3"],
+    "Clothing": ["Point 1", "Point 2", "Point 3"],
+    "Props": ["Point 1", "Point 2", "Point 3"],
+    "Shooting Gear": ["Phone/camera tripod, remote, backdrop, floor, reflector, fill light, and other execution advice"],
+    "Lighting And Set": ["Must include a text lighting diagram: subject position, camera position, key light, fill/reflection, background distance"],
+    "Expressions And Poses": ["Point 1", "Point 2", "Point 3"],
+    "Composition": ["Point 1", "Point 2", "Point 3"],
+    "Post Processing": ["Must include executable Snapseed / Instagram steps; for film or period imitation, include crop ratio, grain, warmth, contrast, saturation, and vignette direction"]
   },
-  "shoppingList": ["低成本采购项1", "低成本采购项2", "低成本采购项3"],
-  "shotList": ["必拍镜头1", "必拍镜头2", "必拍镜头3", "必拍镜头4"]
+  "shoppingList": ["Low-cost purchase item 1", "Low-cost purchase item 2", "Low-cost purchase item 3"],
+  "shotList": ["Must-shoot frame 1", "Must-shoot frame 2", "Must-shoot frame 3", "Must-shoot frame 4"]
 }
-注意：referenceGroups 必须严格包含上述 4 组；每组 items 必须给 4 条。
-不要编造 citation；如果不确定，写“近似参考”，并提供搜索关键词。`;
+Important: referenceGroups must contain exactly the 4 groups above. Each group must contain 4 items.
+Do not invent citations. If uncertain, say the reference is approximate and provide safer search keywords.`;
 }
-
 function extractJson(text) {
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("Model did not return JSON.");
@@ -166,7 +172,7 @@ function extractJson(text) {
 async function callModel(payload) {
   const provider = getProviderConfig();
   if (!provider.apiKey) {
-    const error = new Error("缺少 LLM_API_KEY、ZENMUX_API_KEY、OPENAI_API_KEY、GEMINI_API_KEY 或 ANTHROPIC_API_KEY。请在项目根目录创建 .env 文件，或在部署平台配置环境变量。");
+    const error = new Error("Missing LLM_API_KEY, ZENMUX_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or ANTHROPIC_API_KEY. Create a .env file in the project root, or configure environment variables in your deployment platform.");
     error.statusCode = 503;
     throw error;
   }
@@ -364,11 +370,11 @@ async function handleGenerate(req, res) {
     const imageSearch = body.imageSearch === true || body.webSearch === true;
 
     if (!photoTypes.has(photoType)) {
-      sendJson(res, 400, { error: "请选择有效的拍摄主体。" });
+      sendJson(res, 400, { error: "Choose a valid subject type." });
       return;
     }
     if (mode === "prompt" && !prompt.trim()) {
-      sendJson(res, 400, { error: "请输入主题 prompt，或改用试试手气。" });
+      sendJson(res, 400, { error: "Enter a theme prompt, or use I\'m Feeling Lucky." });
       return;
     }
     if (imageSearch && !getImageSearchProviderConfig()) {
@@ -380,7 +386,7 @@ async function handleGenerate(req, res) {
     await hydrateReferenceImages(plan, { imageSearch, photoType, prompt });
     sendJson(res, 200, { plan, generatedAt: new Date().toISOString() });
   } catch (error) {
-    sendJson(res, error.statusCode || 500, { error: error.message || "生成失败，请稍后重试。" });
+    sendJson(res, error.statusCode || 500, { error: error.message || "Generation failed. Please try again later." });
   }
 }
 
@@ -444,7 +450,7 @@ async function hydrateReferenceImages(plan, options = {}) {
 function normalizeReferenceGroups(plan) {
   if (Array.isArray(plan.referenceGroups)) {
     return plan.referenceGroups.map((group) => ({
-      title: String(group.title || "参考"),
+      title: String(group.title || "Reference"),
       description: String(group.description || ""),
       searchQueries: Array.isArray(group.searchQueries) ? group.searchQueries.map(String).slice(0, 8) : [],
       screeningRules: Array.isArray(group.screeningRules) ? group.screeningRules.map(String).slice(0, 8) : [],
@@ -454,7 +460,7 @@ function normalizeReferenceGroups(plan) {
 
   if (Array.isArray(plan.references)) {
     return plan.references.map((item) => ({
-      title: item.title || "参考",
+      title: item.title || "Reference",
       description: "",
       items: [normalizeReferenceItem(item)]
     }));
@@ -465,7 +471,7 @@ function normalizeReferenceGroups(plan) {
 
 function normalizeReferenceItem(item) {
   return {
-    title: String(item.title || "参考"),
+    title: String(item.title || "Reference"),
     forSubject: String(item.forSubject || ""),
     matchStrength: String(item.matchStrength || "strong"),
     weakReason: String(item.weakReason || ""),
@@ -510,7 +516,7 @@ function getImageSearchProviderConfig() {
 }
 
 function getImageSearchMissingConfigMessage() {
-  return "未配置图片搜索 API。请在 .env 设置 BRAVE_SEARCH_API_KEY 后重启服务。";
+  return "Image search is not configured. Set BRAVE_SEARCH_API_KEY in .env and restart the server.";
 }
 
 async function searchProviderImagesForGroup(group, limit, provider, context) {
@@ -543,28 +549,28 @@ function buildProviderImageQueries(group, context = {}) {
   const expanded = [];
 
   if (namedWork) {
-    if (groupTitle === "成品参考") {
+    if (groupTitle === "Final Visual References") {
       expanded.push(
         `${namedWork} couple film still`,
         `${namedWork} Daisy Gatsby still`,
         `${namedWork} promotional still couple`,
         `${namedWork} poster couple`
       );
-    } else if (groupTitle === "服装参考") {
+    } else if (groupTitle === "Clothing References") {
       expanded.push(
         `${namedWork} couple costume`,
         `${namedWork} halloween couple costume`,
         `${namedWork} 1920s couple outfit`,
         `${namedWork} Daisy Gatsby tuxedo dress`
       );
-    } else if (groupTitle === "场景参考") {
+    } else if (groupTitle === "Scene References") {
       expanded.push(
         `${namedWork} mansion party scene`,
         `${namedWork} ballroom interior film still`,
         `${namedWork} art deco interior`,
         `${namedWork} production design`
       );
-    } else if (groupTitle === "道具参考") {
+    } else if (groupTitle === "Prop References") {
       expanded.push(
         `${namedWork} props accessories`,
         `${namedWork} 1920s props`,
@@ -593,43 +599,43 @@ function buildProviderImageQueries(group, context = {}) {
 }
 
 function inferNamedWork(prompt, referenceIntent = "") {
-  const bracketed = prompt.match(/《([^》]+)》/);
+  const bracketed = prompt.match(/\u300a([^\u300b]+)\u300b/u);
   const raw = bracketed?.[1] || "";
   const text = `${raw} ${prompt}`.toLowerCase();
-  if (/gatsby|盖茨比/.test(text)) return "The Great Gatsby";
+  if (/gatsby/.test(text)) return "The Great Gatsby";
   if (raw) return raw;
-  if (referenceIntent === "named_work") return prompt.replace(/[《》]/g, "").trim();
+  if (referenceIntent === "named_work") return prompt.replace(/[\u300a\u300b]/gu, "").trim();
   return "";
 }
 
 function inferEraPrompt(prompt) {
   const text = String(prompt || "");
-  if (/1920|20s|二十年代|20 年代/.test(text)) return "1920s";
-  if (/1930|30s|三十年代|30 年代/.test(text)) return "1930s";
-  if (/1940|40s|四十年代|40 年代/.test(text)) return "1940s";
-  if (/1950|50s|五十年代|50 年代/.test(text)) return "1950s";
-  if (/1960|60s|六十年代|60 年代/.test(text)) return "1960s";
-  if (/1970|70s|七十年代|70 年代/.test(text)) return "1970s";
-  if (/1980|80s|八十年代|80 年代/.test(text)) return "1980s";
-  if (/1990|90s|九十年代|90 年代/.test(text)) return "1990s";
+  if (/1920|20s/.test(text)) return "1920s";
+  if (/1930|30s/.test(text)) return "1930s";
+  if (/1940|40s/.test(text)) return "1940s";
+  if (/1950|50s/.test(text)) return "1950s";
+  if (/1960|60s/.test(text)) return "1960s";
+  if (/1970|70s/.test(text)) return "1970s";
+  if (/1980|80s/.test(text)) return "1980s";
+  if (/1990|90s/.test(text)) return "1990s";
   return "";
 }
 
 function getSubjectSearchTerms(photoType = "") {
-  if (photoType === "情侣") return ["couple", "romantic couple", "man woman", "two people"];
-  if (photoType === "三口之家") return ["family of three", "parents child"];
-  if (photoType === "亲子") return ["parent child"];
-  if (photoType === "全家福") return ["family portrait"];
-  if (photoType === "好友" || photoType === "闺蜜") return ["friends", "group portrait"];
-  if (photoType === "多人合照") return ["group portrait"];
-  if (photoType === "单人") return ["portrait"];
+  if (photoType === "couple") return ["couple", "romantic couple", "man woman", "two people"];
+  if (photoType === "family-of-three") return ["family of three", "parents child"];
+  if (photoType === "parent-child") return ["parent child"];
+  if (photoType === "family") return ["family portrait"];
+  if (photoType === "friends" || photoType === "best-friends") return ["friends", "group portrait"];
+  if (photoType === "group") return ["group portrait"];
+  if (photoType === "solo") return ["portrait"];
   return [];
 }
 
 function cleanSearchQuery(query) {
   return String(query || "")
     .replace(/\s+/g, " ")
-    .replace(/[“”]/g, '"')
+    .replace(/[\u201c\u201d]/gu, '"')
     .trim();
 }
 
@@ -692,7 +698,7 @@ function normalizeImageCandidate(candidate) {
   const pageUrl = String(candidate.pageUrl || imageUrl);
   if (!imageUrl && !thumbUrl && !pageUrl) return null;
   return {
-    title: String(candidate.title || "参考图"),
+    title: String(candidate.title || "Reference image"),
     thumbUrl,
     imageUrl,
     pageUrl,
@@ -711,7 +717,7 @@ function rankAndSelectImages(candidates, group, limit, context = {}) {
       const key = normalizeImageKey(candidate.imageUrl || candidate.thumbUrl || candidate.pageUrl);
       if (!key || seen.has(key)) return false;
       seen.add(key);
-      return candidate.score > -10;
+      return candidate.score > 0;
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
@@ -725,16 +731,19 @@ function rankAndSelectImages(candidates, group, limit, context = {}) {
       query: candidate.query,
       note: candidate.note || "",
       matchStrength: candidate.score >= 7 ? "strong" : "weak",
-      weakReason: candidate.score >= 7 ? "" : "图片搜索结果与主体或主题只部分匹配，请作为弱参考使用。"
+      weakReason: candidate.score >= 7 ? "" : "This image only partially matches the subject or theme. Treat it as a weak reference."
     }));
 }
 
 function scoreImageCandidate(candidate, group, context = {}) {
-  const text = [
+  const candidateText = [
     candidate.title,
     candidate.sourceName,
     candidate.pageUrl,
-    candidate.imageUrl,
+    candidate.imageUrl
+  ].join(" ").toLowerCase();
+  const text = [
+    candidateText,
     candidate.query,
     ...(Array.isArray(group.screeningRules) ? group.screeningRules : [])
   ].join(" ").toLowerCase();
@@ -761,18 +770,24 @@ function scoreImageCandidate(candidate, group, context = {}) {
   if (containsAny(text, ["stock photo", "shutterstock", "istock", "alamy"])) score -= 1;
 
   if (subjectTerms.length > 0 && containsAny(text, subjectTerms)) score += 4;
-  if (context.photoType === "情侣") {
+  if (context.photoType === "couple") {
     if (containsAny(text, ["couple", "romantic", "daisy", "gatsby", "man woman", "bride groom", "two people", "pair"])) score += 5;
-    if (containsAny(text, ["solo", "single portrait", "headshot"])) score -= groupTitle === "服装参考" ? 1 : 5;
+    if (containsAny(text, ["solo", "single portrait", "headshot"])) score -= groupTitle === "Clothing References" ? 1 : 5;
   }
 
-  if (groupTitle === "成品参考" && containsAny(text, ["film still", "movie still", "promotional still", "poster", "scene", "couple"])) score += 4;
-  if (groupTitle === "服装参考" && containsAny(text, ["costume", "fashion", "outfit", "dress", "tuxedo", "suit", "accessories"])) score += 4;
-  if (groupTitle === "场景参考" && containsAny(text, ["interior", "location", "ballroom", "mansion", "party", "set", "scene", "hotel"])) score += 4;
-  if (groupTitle === "道具参考" && containsAny(text, ["prop", "accessory", "accessories", "object", "vintage", "antique", "jewelry", "glass", "holder", "walkman", "period"])) score += 4;
+  if (groupTitle === "Final Visual References" && containsAny(text, ["film still", "movie still", "promotional still", "poster", "scene", "couple"])) score += 4;
+  if (groupTitle === "Clothing References" && containsAny(text, ["costume", "fashion", "outfit", "dress", "tuxedo", "suit", "accessories"])) score += 4;
+  if (groupTitle === "Scene References" && containsAny(text, ["interior", "location", "ballroom", "mansion", "party", "set", "scene", "hotel"])) score += 4;
+  if (groupTitle === "Prop References" && containsAny(text, ["prop", "accessory", "accessories", "object", "vintage", "antique", "jewelry", "glass", "holder", "walkman", "period"])) score += 4;
 
-  if (/gatsby|盖茨比/.test(prompt) && containsAny(text, ["gatsby", "daisy", "roaring twenties", "1920s", "art deco"])) score += 5;
-  if (prompt.includes("1920") && containsAny(text, ["1920", "roaring twenties", "flapper", "art deco"])) score += 3;
+  if (/gatsby/.test(prompt)) {
+    if (containsAny(candidateText, ["gatsby", "daisy", "roaring twenties", "1920s", "art deco"])) score += 6;
+    else score -= groupTitle === "Final Visual References" ? 14 : 3;
+  }
+  if (prompt.includes("1920")) {
+    if (containsAny(candidateText, ["1920", "roaring twenties", "flapper", "art deco"])) score += 4;
+    else if (groupTitle !== "Scene References") score -= 3;
+  }
 
   return { ...candidate, score };
 }
@@ -853,5 +868,5 @@ createServer((req, res) => {
   res.writeHead(405);
   res.end("Method not allowed");
 }).listen(port, host, () => {
-  console.log(`Photo Inspiration is running at http://127.0.0.1:${port}`);
+  console.log(`Selfie Studio Planner is running at http://127.0.0.1:${port}`);
 });

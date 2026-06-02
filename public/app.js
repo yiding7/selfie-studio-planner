@@ -28,7 +28,7 @@ function updateFormState() {
   promptInput.disabled = !hasType;
   luckyBtn.disabled = !hasType;
   startBtn.disabled = !hasType || !promptInput.value.trim();
-  hint.textContent = hasType ? "可以输入主题 prompt，或直接试试手气" : "请先选择拍摄主体以激活生成按钮";
+  hint.textContent = hasType ? "Enter a theme prompt, or try I'm Feeling Lucky" : "Choose a subject type to enable generation";
 }
 
 function autoResizeTextarea() {
@@ -56,11 +56,11 @@ async function generate(mode) {
   };
 
   if (!payload.photoType) {
-    toast("请先选择拍摄主体。");
+    toast("Choose a subject type first.");
     return;
   }
   if (mode === "prompt" && !payload.prompt) {
-    toast("请输入主题 prompt，或点击试试手气。");
+    toast("Enter a theme prompt, or click I'm Feeling Lucky.");
     return;
   }
   if (payload.imageSearch && !publicConfig.imageSearch?.enabled) {
@@ -72,8 +72,8 @@ async function generate(mode) {
   setLoading(true);
   result.replaceChildren();
   result.classList.add("hidden");
-  startBtn.textContent = "生成中...";
-  luckyBtn.textContent = "掷骰中...";
+  startBtn.textContent = "Generating...";
+  luckyBtn.textContent = "Rolling...";
 
   try {
     const response = await fetch("/api/generate", {
@@ -82,21 +82,21 @@ async function generate(mode) {
       body: JSON.stringify(payload)
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "生成失败");
+    if (!response.ok) throw new Error(data.error || "Generation failed");
     lastPlan = data.plan;
     renderResult(data.plan, mode);
     result.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
-    toast(error.message || "生成失败，请稍后重试。");
+    toast(error.message || "Generation failed. Please try again later.");
   } finally {
     setLoading(false);
-    startBtn.textContent = "开始生成";
-    luckyBtn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.4 12 3l7 4.4v9.2L12 21l-7-4.4V7.4Zm2.2 1.2v6.8L12 18.5l4.8-3.1V8.6L12 5.5 7.2 8.6Zm3.1 1.4h1.4v1.4h-1.4V10Zm3 2.6h1.4V14h-1.4v-1.4Zm-4 2.1h1.4v1.4H9.3v-1.4Z"/></svg>试试手气`;
+    startBtn.textContent = "Generate";
+    luckyBtn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.4 12 3l7 4.4v9.2L12 21l-7-4.4V7.4Zm2.2 1.2v6.8L12 18.5l4.8-3.1V8.6L12 5.5 7.2 8.6Zm3.1 1.4h1.4v1.4h-1.4V10Zm3 2.6h1.4V14h-1.4v-1.4Zm-4 2.1h1.4v1.4H9.3v-1.4Z"/></svg>I'm Feeling Lucky`;
   }
 }
 
 function fileBaseName() {
-  return (lastPlan?.theme || "自拍灵感").replace(/[\\/:*?"<>|]/g, "-");
+  return (lastPlan?.theme || "selfie-studio-plan").replace(/[\\/:*?"<>|]/g, "-");
 }
 
 function setLoading(isLoading) {
@@ -126,18 +126,18 @@ function updateImageSearchToggle() {
   const label = imageSearchToggle.closest(".search-toggle");
   label?.classList.toggle("disabled", !enabled);
   const message = enabled
-    ? `已启用 ${formatImageSearchProvider(publicConfig.imageSearch.provider)}`
+    ? `Enabled: ${formatImageSearchProvider(publicConfig.imageSearch.provider)}`
     : imageSearchConfigMessage();
   label?.setAttribute("title", message);
 }
 
 function formatImageSearchProvider(provider) {
   if (provider === "brave") return "Brave Search";
-  return "图片搜索";
+  return "Image Search";
 }
 
 function imageSearchConfigMessage() {
-  return "未配置图片搜索 API：请在 .env 设置 BRAVE_SEARCH_API_KEY 后重启服务。";
+  return "Image search is not configured. Set BRAVE_SEARCH_API_KEY in .env and restart the server.";
 }
 
 function renderResult(plan, mode) {
@@ -199,7 +199,7 @@ function renderReferenceGroups(container, groups = [], legacyReferences = []) {
     const heading = document.createElement("div");
     heading.className = "reference-heading";
     heading.innerHTML = `<div><h3></h3><p></p></div>`;
-    heading.querySelector("h3").textContent = group.title || "参考";
+    heading.querySelector("h3").textContent = group.title || "Reference";
     heading.querySelector("p").textContent = group.description || "";
 
     const gallery = document.createElement("div");
@@ -211,22 +211,23 @@ function renderReferenceGroups(container, groups = [], legacyReferences = []) {
     const previewImages = images.filter((image) => image.thumbUrl || image.imageUrl);
 
     for (const entry of images) {
-      const button = document.createElement("button");
-      button.className = "reference-thumb";
-      button.type = "button";
       const hasPreview = Boolean(entry.thumbUrl || entry.imageUrl);
       if (hasPreview) {
-        button.innerHTML = `<img alt="" loading="lazy" /><span></span>`;
-        const image = button.querySelector("img");
+        const tile = document.createElement("figure");
+        tile.className = "reference-tile";
+        tile.innerHTML = `<button class="reference-thumb" type="button"><img alt="" loading="lazy" /><span></span></button><figcaption><a target="_blank" rel="noreferrer">Open source</a></figcaption>`;
+        const button = tile.querySelector("button");
+        const image = tile.querySelector("img");
+        const sourceLink = tile.querySelector("a");
         image.src = proxiedImageUrl(entry.thumbUrl || entry.imageUrl);
-        image.alt = entry.title || entry.item?.title || group.title || "参考图";
+        image.alt = entry.title || entry.item?.title || group.title || "Reference image";
         image.addEventListener("error", () => {
-          const link = buildSourceCard(entry);
-          button.replaceWith(link);
+          tile.replaceWith(buildSourceCard(entry));
         }, { once: true });
-        button.querySelector("span").textContent = entry.item?.title || entry.title || "参考图";
+        button.querySelector("span").textContent = entry.item?.title || entry.title || "Reference image";
         button.addEventListener("click", () => openImageModal(previewImages, previewImages.indexOf(entry)));
-        gallery.append(button);
+        sourceLink.href = entry.pageUrl || entry.imageUrl || entry.thumbUrl || "#";
+        gallery.append(tile);
       } else {
         gallery.append(buildSourceCard(entry));
       }
@@ -248,9 +249,9 @@ function renderReferenceGroups(container, groups = [], legacyReferences = []) {
     notes.className = "reference-notes";
     for (const item of items) {
       const note = document.createElement("p");
-      const keywords = Array.isArray(item.keywords) && item.keywords.length > 0 ? ` ｜ ${item.keywords.join(" / ")}` : "";
-      const warnings = [item.frameUse, item.anachronismWarning, item.weakReason ? `弱参考：${item.weakReason}` : ""].filter(Boolean).join(" ｜ ");
-      note.textContent = `${item.title || group.title}: ${item.note || item.searchQuery || ""}${keywords}${warnings ? ` ｜ ${warnings}` : ""}`;
+      const keywords = Array.isArray(item.keywords) && item.keywords.length > 0 ? ` | ${item.keywords.join(" / ")}` : "";
+      const warnings = [item.frameUse, item.anachronismWarning, item.weakReason ? `Weak reference: ${item.weakReason}` : ""].filter(Boolean).join(" | ");
+      note.textContent = `${item.title || group.title}: ${item.note || item.searchQuery || ""}${keywords}${warnings ? ` | ${warnings}` : ""}`;
       notes.append(note);
     }
 
@@ -266,20 +267,20 @@ function buildSourceCard(entry) {
   link.href = entry.pageUrl || entry.imageUrl || "#";
   link.target = "_blank";
   link.rel = "noreferrer";
-  link.innerHTML = `<strong></strong><p></p><small>打开参考来源</small>`;
+  link.innerHTML = `<strong></strong><p></p><small>Open source</small>`;
   link.querySelector("strong").textContent = formatReferenceTitle(item);
   link.querySelector("p").textContent = formatReferenceNote(item);
   return link;
 }
 
 function formatReferenceTitle(item) {
-  const prefix = item.matchStrength === "weak" ? "弱参考 · " : "";
-  const subject = item.forSubject ? `${item.forSubject} · ` : "";
-  return `${prefix}${subject}${item.title || "参考"}`;
+  const prefix = item.matchStrength === "weak" ? "Weak reference - " : "";
+  const subject = item.forSubject ? `${item.forSubject} - ` : "";
+  return `${prefix}${subject}${item.title || "Reference"}`;
 }
 
 function formatReferenceNote(item) {
-  return [item.note || item.prompt || item.query || "", item.weakReason ? `弱参考原因：${item.weakReason}` : ""]
+  return [item.note || item.prompt || item.query || "", item.weakReason ? `Weak-reference reason: ${item.weakReason}` : ""]
     .filter(Boolean)
     .join(" ");
 }
@@ -300,9 +301,9 @@ function updateImageModal() {
   const meta = imageModal.querySelector("span");
   const link = imageModal.querySelector("a");
   img.src = proxiedImageUrl(entry.imageUrl || entry.thumbUrl || "");
-  img.alt = entry.title || entry.item?.title || "参考图";
-  title.textContent = entry.title || entry.item?.title || "参考图";
-  meta.textContent = [entry.item?.note, entry.license, entry.author].filter(Boolean).join(" · ");
+  img.alt = entry.title || entry.item?.title || "Reference image";
+  title.textContent = entry.title || entry.item?.title || "Reference image";
+  meta.textContent = [entry.item?.note, entry.license, entry.author].filter(Boolean).join(" - ");
   link.href = entry.pageUrl || entry.imageUrl || entry.thumbUrl;
 }
 
@@ -334,7 +335,7 @@ async function exportPng() {
   const card = document.querySelector("#export-card");
   await ensureExportLibraries();
   if (!card || !window.html2canvas) {
-    toast("导出库还未加载完成，请稍后再试。");
+    toast("Export libraries are still loading. Please try again in a moment.");
     return;
   }
   await waitForImages(card);
@@ -356,7 +357,7 @@ async function exportPdf() {
   const card = document.querySelector("#export-card");
   await ensureExportLibraries();
   if (!card || !window.html2pdf) {
-    toast("导出库还未加载完成，请稍后再试。");
+    toast("Export libraries are still loading. Please try again in a moment.");
     return;
   }
   await waitForImages(card);
@@ -374,6 +375,7 @@ async function exportPdf() {
         scrollY: 0
       },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      enableLinks: true,
       pagebreak: { mode: ["css", "legacy"] }
     })
     .from(card)
