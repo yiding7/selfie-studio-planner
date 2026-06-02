@@ -38,6 +38,21 @@ Responsibilities:
 - **Image Search API**: Brave Search API returns candidate images.
 - **Backend rules**: generate/expand queries, score image quality from returned metadata, filter obvious mismatches, match named works and subject type, dedupe, and assign top images to the four groups.
 
+Key code modules:
+
+- `server.js`: small HTTP entrypoint and route dispatch.
+- `server/prompt.js`: system prompt and JSON extraction.
+- `server/llm.js`: LLM provider configuration and API calls.
+- `server/image-search.js`: compatibility re-export for the image pipeline modules.
+- `server/image/provider.js`: Brave provider config, API calls, and image candidate normalization.
+- `server/image/queries.js`: subject-aware query generation and per-reference manual query assignment.
+- `server/image/scoring.js`: metadata-based image scoring, named-work matching, and subject mismatch penalties.
+- `server/image/references.js`: reference group normalization and image hydration orchestration.
+- `server/routes.js`: API handlers for generation, public config, and image proxying.
+- `server/static.js`: static file serving.
+- `public/app.js`: tiny frontend module entrypoint.
+- `public/js/*.js`: frontend modules for state, form behavior, rendering, modal preview, export, and API generation.
+
 The image scorer does not use a vision model. It ranks candidates from Brave metadata such as title, page URL, image URL, source, dimensions, matched query, named-work signals, and subject-type signals. A future LLM reranker could judge metadata or image URLs, but that is intentionally not part of the current local-first pipeline.
 
 The four image groups are:
@@ -166,10 +181,10 @@ LLM_BASE_URL=https://zenmux.ai/api/v1
 The main prompt contract lives in:
 
 ```text
-server.js -> buildPrompt()
+server/prompt.js -> buildPrompt()
 ```
 
-Edit `buildPrompt()` to adapt the tool to your own workflow, language policy, reference sources, JSON schema, subject-type rules, visual grounding rules, or LLM behavior limits. The current policy detects the prompt language server-side, injects a required output language into the system prompt, and keeps JSON field names stable in English.
+Edit `server/prompt.js -> buildPrompt()` to adapt the tool to your own workflow, language policy, reference sources, JSON schema, subject-type rules, visual grounding rules, or LLM behavior limits. The current policy detects the prompt language server-side, injects a required output language into the system prompt, and keeps JSON field names stable in English.
 
 Important constraints to preserve unless you intentionally redesign the app:
 
@@ -246,6 +261,21 @@ referenceIntent -> query generation -> Brave image search -> rule scoring -> gro
 - **Image Search API**：Brave Search API 返回候选图片。
 - **后端规则**：扩展 query、基于返回 metadata 评分、过滤明显不匹配结果、匹配作品名和主体类型、去重，并把 top images 分配到四个分组。
 
+主要代码模块：
+
+- `server.js`：轻量 HTTP 入口和路由分发。
+- `server/prompt.js`：system prompt 和 JSON 提取。
+- `server/llm.js`：LLM provider 配置和 API 调用。
+- `server/image-search.js`：图片 pipeline 的兼容 re-export。
+- `server/image/provider.js`：Brave provider 配置、API 调用和候选图标准化。
+- `server/image/queries.js`：主体感知 query 生成和每条 reference 的手动 query 分配。
+- `server/image/scoring.js`：基于 metadata 的图片评分、作品名匹配和主体 mismatch 降权。
+- `server/image/references.js`：reference group 标准化和图片 hydration 编排。
+- `server/routes.js`：生成、公开配置和图片代理 API handler。
+- `server/static.js`：静态文件服务。
+- `public/app.js`：很小的前端模块入口。
+- `public/js/*.js`：前端 state、表单行为、结果渲染、图片预览、导出和生成请求模块。
+
 当前图片筛选不使用 vision model，也不会要求 LLM 查看图片像素。后端会根据 Brave 返回的标题、页面 URL、图片 URL、来源、尺寸、命中的 query、作品名信号和主体类型信号进行排序。未来可以加入 LLM reranker 来判断 metadata 或图片 URL，但这不是当前本地优先 pipeline 的一部分。
 
 四个图片分组：
@@ -294,9 +324,9 @@ API key 只由后端读取，不会进入前端。缺少 `BRAVE_SEARCH_API_KEY` 
 主要 prompt contract 位于：
 
 ```text
-server.js -> buildPrompt()
+server/prompt.js -> buildPrompt()
 ```
 
-你可以修改 `buildPrompt()` 来调整语言策略、参考来源、JSON schema、主体匹配规则、视觉考据规则或 LLM 行为限制。当前策略是在后端检测 prompt 语言，并向 system prompt 注入 required output language，同时保持 JSON 字段名英文稳定。除非你计划重构后端图片 pipeline，否则建议保留 `referenceGroups`、`searchQueries`、`screeningRules` 的结构稳定。
+你可以修改 `server/prompt.js -> buildPrompt()` 来调整语言策略、参考来源、JSON schema、主体匹配规则、视觉考据规则或 LLM 行为限制。当前策略是在后端检测 prompt 语言，并向 system prompt 注入 required output language，同时保持 JSON 字段名英文稳定。除非你计划重构后端图片 pipeline，否则建议保留 `referenceGroups`、`searchQueries`、`screeningRules` 的结构稳定。
 
 </details>

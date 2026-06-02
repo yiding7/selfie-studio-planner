@@ -1,0 +1,11 @@
+export const form = document.querySelector("#generator-form");
+export const promptInput = document.querySelector("#prompt");
+export const counter = document.querySelector("#counter");
+export const startBtn = document.querySelector("#start-btn");
+export const luckyBtn = document.querySelector("#lucky-btn");
+export const imageSearchToggle = document.querySelector("#image-search-toggle");
+export const hint = document.querySelector("#form-hint");
+export const result = document.querySelector("#result");
+export const template = document.querySelector("#result-template");
+export const imageModal = document.querySelector("#image-modal");
+export const loadingOverlay = document.querySelector("#loading-overlay");

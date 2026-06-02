@@ -72,9 +72,19 @@ Removed or intentionally unsupported:
 
 ## Main Files
 
-- `server.js`: HTTP server, LLM provider config, system prompt in `buildPrompt()`, Brave image pipeline, image proxy, API routes.
+- `server.js`: small HTTP entrypoint and route dispatch.
+- `server/prompt.js`: system prompt in `buildPrompt()` and JSON extraction.
+- `server/llm.js`: LLM provider configuration and API calls.
+- `server/image-search.js`: compatibility re-export for the image pipeline modules.
+- `server/image/provider.js`: Brave provider config, API calls, and image candidate normalization.
+- `server/image/queries.js`: subject-aware query generation and per-reference manual query assignment.
+- `server/image/scoring.js`: metadata-based image scoring, named-work matching, and subject mismatch penalties.
+- `server/image/references.js`: reference group normalization and image hydration orchestration.
+- `server/routes.js`: generation, public config, and image proxy API handlers.
+- `server/static.js`: static file serving.
 - `public/index.html`: static app shell.
-- `public/app.js`: frontend state, rendering, per-reference manual image-search query chips, image preview, exports.
+- `public/app.js`: tiny frontend module entrypoint.
+- `public/js/*.js`: frontend state, form behavior, generation, rendering, image modal, export, and utilities.
 - `public/styles.css`: UI styling and export layout.
 - `.env.example`: supported environment variables.
 - `README.md`: public documentation.
@@ -84,7 +94,7 @@ Removed or intentionally unsupported:
 The main system prompt lives in:
 
 ```text
-server.js -> buildPrompt()
+server/prompt.js -> buildPrompt()
 ```
 
 When changing it, keep the JSON contract stable unless the backend render/scoring code is updated at the same time. Preserve the current language policy unless intentionally changing product behavior: detect prompt language server-side, inject a required output language into the prompt, and keep JSON field names in English. The key contract fields are `referenceGroups`, `searchQueries`, and `screeningRules`.
