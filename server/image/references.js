@@ -76,13 +76,30 @@ async function searchProviderImagesForGroup(group, limit, provider, context, ava
   const candidates = [];
 
   for (const query of queries) {
-    const results = await searchImageApi(query, provider, Math.max(limit * 3, 10));
-    for (const result of results) {
-      candidates.push({ ...result, query });
+    try {
+      const results = await searchImageApi(query, provider, Math.max(limit * 3, 10));
+      for (const result of results) {
+        candidates.push({ ...result, query });
+      }
+    } catch (error) {
+      group.imageSearchError = formatImageSearchError(error);
+      break;
     }
   }
 
-  return rankAndSelectImages(candidates, group, limit, context);
+  const selected = rankAndSelectImages(candidates, group, limit, context);
+  if (context.imageSearch && selected.length === 0 && !group.imageSearchError) {
+    group.imageSearchError = "Image search returned candidates, but none passed the relevance filter. Manual queries are still available.";
+  }
+  return selected;
+}
+
+function formatImageSearchError(error) {
+  const message = String(error?.message || "Image search failed.");
+  if (message.includes("Timeout") || message.includes("timeout") || message.includes("UND_ERR_CONNECT_TIMEOUT")) {
+    return "Image search timed out while contacting Brave Search. Manual queries are still available.";
+  }
+  return message;
 }
 
 function getImageSearchQueryLimit(provider) {

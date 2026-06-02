@@ -23,13 +23,9 @@ async function searchImageApi(query, provider, limit) {
   const cacheKey = `${provider.name}::${query}::${limit}`;
   if (imageApiCache.has(cacheKey)) return imageApiCache.get(cacheKey);
 
-  try {
-    const images = await searchBraveImages(query, provider, limit);
-    imageApiCache.set(cacheKey, images);
-    return images;
-  } catch {
-    return [];
-  }
+  const images = await searchBraveImages(query, provider, limit);
+  imageApiCache.set(cacheKey, images);
+  return images;
 }
 
 async function searchBraveImages(query, provider, limit) {
@@ -47,12 +43,16 @@ async function searchBraveImages(query, provider, limit) {
   }
 
   const response = await fetch(`${provider.endpoint}?${params}`, {
+    signal: AbortSignal.timeout(getImageSearchTimeoutMs()),
     headers: {
       accept: "application/json",
       "X-Subscription-Token": provider.apiKey
     }
   });
-  if (!response.ok) return [];
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Brave image search failed: ${response.status} ${message.slice(0, 220)}`);
+  }
   const data = await response.json();
   return (data.results || []).map((item) => normalizeImageCandidate({
     title: item.title,
@@ -64,6 +64,11 @@ async function searchBraveImages(query, provider, limit) {
     height: item.properties?.height,
     confidence: item.confidence
   })).filter(Boolean);
+}
+
+function getImageSearchTimeoutMs() {
+  const configured = Number(process.env.BRAVE_IMAGE_SEARCH_TIMEOUT_MS || 8000);
+  return Math.min(Math.max(Math.floor(configured), 1000), 30000);
 }
 
 function normalizeImageCandidate(candidate) {

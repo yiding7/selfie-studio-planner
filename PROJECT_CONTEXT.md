@@ -65,7 +65,7 @@ Removed or intentionally unsupported:
 - Backend reads API keys from environment variables.
 - Frontend never receives API keys.
 - Missing LLM API disables generation.
-- Missing Brave Search API disables Image Search but still allows text-only generation.
+- Missing Brave Search API disables Image Search but still allows text-only generation. Brave request timeouts or fully filtered candidate sets are surfaced per reference group through `imageSearchError`, while manual image-search queries remain visible.
 - The app is local-first. With `HOST=127.0.0.1`, no account system, CAPTCHA, public abuse monitoring, or production public rate limiter is required.
 - Do not expose the app through a tunnel, reverse proxy, public IP, or hosted URL unless abuse protections are added first.
 - If public hosting is revisited, add rate limiting, origin restrictions, request logging, quota alerts, key rotation, and conservative Image Search query limits.

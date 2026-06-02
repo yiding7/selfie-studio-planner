@@ -110,6 +110,15 @@ function renderReferenceGroups(container, groups = [], legacyReferences = []) {
       }
     }
 
+    if (group.imageSearchError) {
+      const warning = document.createElement("p");
+      warning.className = "image-search-warning";
+      warning.textContent = group.imageSearchError;
+      section.append(heading, gallery, warning);
+    } else {
+      section.append(heading, gallery);
+    }
+
     const notes = document.createElement("div");
     notes.className = "reference-notes";
     for (const item of items) {
@@ -120,7 +129,7 @@ function renderReferenceGroups(container, groups = [], legacyReferences = []) {
       notes.append(note);
     }
 
-    section.append(heading, gallery, notes);
+    section.append(notes);
     container.append(section);
   }
 }

@@ -129,6 +129,7 @@ BRAVE_SEARCH_LANG=en
 BRAVE_SAFESEARCH=strict
 BRAVE_SPELLCHECK=1
 BRAVE_IMAGE_SEARCH_COUNT=20
+BRAVE_IMAGE_SEARCH_TIMEOUT_MS=8000
 IMAGE_SEARCH_QUERIES_PER_GROUP=2
 
 PORT=5173
@@ -141,6 +142,7 @@ Notes:
 - `.env` is ignored by git and should not be committed.
 - `IMAGE_SEARCH_QUERIES_PER_GROUP=2` limits Brave image requests per reference group. Increase it for more recall, lower it for cost control.
 - `BRAVE_IMAGE_SEARCH_COUNT=20` controls candidate images per query before backend ranking.
+- `BRAVE_IMAGE_SEARCH_TIMEOUT_MS=8000` controls the per-query Brave request timeout. If Brave times out or candidates are filtered out, the frontend shows a warning and keeps manual image-search queries visible.
 
 OpenAI example:
 
