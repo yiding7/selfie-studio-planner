@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>自拍灵感</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="应用顶部栏">
+      <a class="brand" href="/" aria-label="自拍灵感首页">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M7 6.5 8.4 4h7.2L17 6.5h2.2A2.8 2.8 0 0 1 22 9.3v8.4a2.8 2.8 0 0 1-2.8 2.8H4.8A2.8 2.8 0 0 1 2 17.7V9.3a2.8 2.8 0 0 1 2.8-2.8H7Zm5 11a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4Z"/></svg>
+        </span>
+        自拍灵感
+      </a>
+    </header>
+
+    <main>
+      <section class="search-shell" aria-labelledby="page-title">
+        <h1 id="page-title">自拍灵感</h1>
+        <p class="intro">为每一个值得记录的时刻，找到可执行的拍摄方案</p>
+
+        <form id="generator-form" class="generator-form">
+          <fieldset class="type-field">
+            <legend>选择拍摄主体 <span aria-hidden="true">*</span></legend>
+            <div class="type-grid" role="radiogroup" aria-label="选择拍摄主体">
+              <label><input type="radio" name="photoType" value="单人" /><span>单人</span></label>
+              <label><input type="radio" name="photoType" value="情侣" /><span>情侣</span></label>
+              <label><input type="radio" name="photoType" value="三口之家" /><span>三口之家</span></label>
+              <label><input type="radio" name="photoType" value="亲子" /><span>亲子</span></label>
+              <label><input type="radio" name="photoType" value="全家福" /><span>全家福</span></label>
+              <label><input type="radio" name="photoType" value="好友" /><span>好友</span></label>
+              <label><input type="radio" name="photoType" value="闺蜜" /><span>闺蜜</span></label>
+              <label><input type="radio" name="photoType" value="多人合照" /><span>多人合照</span></label>
+            </div>
+          </fieldset>
+
+          <div class="prompt-wrap">
+            <textarea id="prompt" maxlength="1200" disabled placeholder="描述你想要的主题或场景，例如：中式传统风格、海边日落、居家温馨、复古胶片感……
+
+越详细，灵感越贴合你的需求。"></textarea>
+            <span id="counter">0 / 1200</span>
+          </div>
+
+          <div class="actions">
+            <button id="start-btn" class="button primary" type="submit" disabled>开始生成</button>
+            <button id="lucky-btn" class="button secondary" type="button" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7.4 12 3l7 4.4v9.2L12 21l-7-4.4V7.4Zm2.2 1.2v6.8L12 18.5l4.8-3.1V8.6L12 5.5 7.2 8.6Zm3.1 1.4h1.4v1.4h-1.4V10Zm3 2.6h1.4V14h-1.4v-1.4Zm-4 2.1h1.4v1.4H9.3v-1.4Z"/></svg>
+              试试手气
+            </button>
+          </div>
+
+          <label class="search-toggle">
+            <input id="image-search-toggle" type="checkbox" checked />
+            <span>图片搜索</span>
+          </label>
+
+          <p id="form-hint" class="form-hint">请先选择拍摄主体以激活生成按钮</p>
+        </form>
+      </section>
+
+      <section id="result" class="result-shell hidden" aria-live="polite"></section>
+    </main>
+
+    <div id="loading-overlay" class="loading-overlay" aria-live="polite" aria-hidden="true">
+      <div class="loading-panel">
+        <span class="spinner" aria-hidden="true"></span>
+        <strong>正在生成拍摄方案</strong>
+        <p>正在整理主题、参考图、服装道具和拍摄建议</p>
+      </div>
+    </div>
+
+    <template id="result-template">
+      <div class="result-toolbar">
+        <div>
+          <h2 data-field="theme"></h2>
+          <p data-field="subtitle"></p>
+        </div>
+        <div class="toolbar-actions">
+          <button class="button ghost" type="button" data-action="regenerate">重新生成</button>
+          <button class="button ghost" type="button" data-action="reroll">换一换</button>
+          <button class="button ghost" type="button" data-action="png">导出 PNG</button>
+          <button class="button ghost" type="button" data-action="pdf">导出 PDF</button>
+        </div>
+      </div>
+
+      <div id="export-card" class="export-card">
+        <div class="reference-groups" data-field="references"></div>
+        <div class="plan-grid">
+          <div class="section-table" data-field="sections"></div>
+          <aside class="side-notes">
+            <h3>低成本采购</h3>
+            <ul data-field="shoppingList"></ul>
+            <h3>必拍清单</h3>
+            <ul data-field="shotList"></ul>
+          </aside>
+        </div>
+        <p class="disclaimer">内容由 AI 生成，仅供参考；请结合实际空间、光线和拍摄对象状态调整。</p>
+      </div>
+    </template>
+
+    <div id="image-modal" class="image-modal hidden" role="dialog" aria-modal="true" aria-label="参考图预览">
+      <button class="modal-close" type="button" aria-label="关闭预览">×</button>
+      <button class="modal-nav prev" type="button" aria-label="上一张">‹</button>
+      <figure>
+        <img alt="" />
+        <figcaption>
+          <strong></strong>
+          <span></span>
+          <a target="_blank" rel="noreferrer">查看来源</a>
+        </figcaption>
+      </figure>
+      <button class="modal-nav next" type="button" aria-label="下一张">›</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.3/html2pdf.bundle.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
