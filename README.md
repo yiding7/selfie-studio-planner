@@ -28,7 +28,7 @@ The app generates:
 The current image pipeline is intentionally small and explicit:
 
 ```text
-referenceIntent -> query generation -> Brave image search -> rule scoring -> grouped top images
+referenceIntent -> subject-aware query generation -> Brave image search -> metadata rule scoring -> grouped top images
 ```
 
 Responsibilities:
@@ -36,7 +36,9 @@ Responsibilities:
 - **Frontend**: subject selection, prompt input, Image Search toggle, result rendering, per-reference manual image-search queries, image preview modal, PNG/PDF export.
 - **LLM backend call**: generates the theme plan, reference intent, grouped search queries, and screening rules. It does not browse for images and must not return image URLs.
 - **Image Search API**: Brave Search API returns candidate images.
-- **Backend rules**: generate/expand queries, score image quality, filter obvious mismatches, lightly match subject type, dedupe, and assign top images to the four groups.
+- **Backend rules**: generate/expand queries, score image quality from returned metadata, filter obvious mismatches, match named works and subject type, dedupe, and assign top images to the four groups.
+
+The image scorer does not use a vision model. It ranks candidates from Brave metadata such as title, page URL, image URL, source, dimensions, matched query, named-work signals, and subject-type signals. A future LLM reranker could judge metadata or image URLs, but that is intentionally not part of the current local-first pipeline.
 
 The four image groups are:
 
@@ -242,7 +244,9 @@ referenceIntent -> query generation -> Brave image search -> rule scoring -> gro
 - **前端**：主体选择、prompt 输入、图片搜索开关、结果展示、按参考项展示的手动搜图 query、图片预览、PNG/PDF 导出。
 - **LLM 后端调用**：生成主题方案、参考意图、分组搜索 query 和筛选规则。LLM 不联网找图，也不返回图片 URL。
 - **Image Search API**：Brave Search API 返回候选图片。
-- **后端规则**：扩展 query、评分、过滤明显不匹配结果、轻量主体匹配、去重，并把 top images 分配到四个分组。
+- **后端规则**：扩展 query、基于返回 metadata 评分、过滤明显不匹配结果、匹配作品名和主体类型、去重，并把 top images 分配到四个分组。
+
+当前图片筛选不使用 vision model，也不会要求 LLM 查看图片像素。后端会根据 Brave 返回的标题、页面 URL、图片 URL、来源、尺寸、命中的 query、作品名信号和主体类型信号进行排序。未来可以加入 LLM reranker 来判断 metadata 或图片 URL，但这不是当前本地优先 pipeline 的一部分。
 
 四个图片分组：
 

@@ -548,6 +548,7 @@ function buildProviderImageQueries(group, context = {}) {
   const prompt = String(context.prompt || "");
   const namedWork = inferNamedWork(prompt, context.plan?.referenceIntent);
   const subjectTerms = getSubjectSearchTerms(context.photoType);
+  const subjectLabel = subjectTerms[0] || "portrait";
   const era = inferEraPrompt(prompt);
   const groupTitle = group.title || "";
   const expanded = [];
@@ -555,48 +556,53 @@ function buildProviderImageQueries(group, context = {}) {
   if (namedWork) {
     if (groupTitle === "Final Visual References") {
       expanded.push(
-        `${namedWork} couple film still`,
-        `${namedWork} Daisy Gatsby still`,
-        `${namedWork} promotional still couple`,
-        `${namedWork} poster couple`
+        `${namedWork} ${subjectLabel} scene`,
+        `${namedWork} ${subjectLabel} still`,
+        `${namedWork} cast ${subjectLabel}`,
+        `${namedWork} poster ${subjectLabel}`
       );
     } else if (groupTitle === "Clothing References") {
       expanded.push(
-        `${namedWork} couple costume`,
-        `${namedWork} halloween couple costume`,
-        `${namedWork} 1920s couple outfit`,
-        `${namedWork} Daisy Gatsby tuxedo dress`
+        `${namedWork} ${subjectLabel} costume`,
+        `${namedWork} character outfits ${subjectLabel}`,
+        `${namedWork} cosplay ${subjectLabel}`,
+        `${namedWork} wardrobe ${subjectLabel}`
       );
     } else if (groupTitle === "Scene References") {
       expanded.push(
-        `${namedWork} mansion party scene`,
-        `${namedWork} ballroom interior film still`,
-        `${namedWork} art deco interior`,
+        `${namedWork} interior scene`,
+        `${namedWork} setting location`,
+        `${namedWork} background scene`,
         `${namedWork} production design`
       );
     } else if (groupTitle === "Prop References") {
       expanded.push(
         `${namedWork} props accessories`,
-        `${namedWork} 1920s props`,
-        `${namedWork} Daisy Gatsby accessories`,
-        `${namedWork} art deco party props`
+        `${namedWork} objects props`,
+        `${namedWork} character accessories`,
+        `${namedWork} set dressing props`
       );
     }
   }
 
+  const expandedBaseQueries = [];
   for (const query of baseQueries) {
     const normalized = query.trim();
     if (!normalized) continue;
-    expanded.push(normalized);
+    expandedBaseQueries.push(normalized);
     if (subjectTerms.length > 0 && !containsAny(normalized, subjectTerms)) {
-      expanded.push(`${normalized} ${subjectTerms[0]}`);
+      expandedBaseQueries.push(`${normalized} ${subjectTerms[0]}`);
     }
     if (era && !normalized.toLowerCase().includes(era.toLowerCase())) {
-      expanded.push(`${normalized} ${era}`);
+      expandedBaseQueries.push(`${normalized} ${era}`);
     }
   }
 
-  return expanded
+  const orderedQueries = groupTitle === "Prop References" || groupTitle === "Scene References"
+    ? [...expandedBaseQueries, ...expanded]
+    : [...expanded, ...expandedBaseQueries];
+
+  return orderedQueries
     .map(cleanSearchQuery)
     .filter(Boolean)
     .filter((query, index, array) => array.indexOf(query) === index);
@@ -607,6 +613,7 @@ function inferNamedWork(prompt, referenceIntent = "") {
   const raw = bracketed?.[1] || "";
   const text = `${raw} ${prompt}`.toLowerCase();
   if (/gatsby/.test(text)) return "The Great Gatsby";
+  if (/family\s*guy|\u6076\u641e\u4e4b\u5bb6/.test(text)) return "Family Guy";
   if (raw) return raw;
   if (referenceIntent === "named_work") return prompt.replace(/[\u300a\u300b]/gu, "").trim();
   return "";
@@ -626,14 +633,53 @@ function inferEraPrompt(prompt) {
 }
 
 function getSubjectSearchTerms(photoType = "") {
-  if (photoType === "couple") return ["couple", "romantic couple", "man woman", "two people"];
-  if (photoType === "family-of-three") return ["family of three", "parents child"];
-  if (photoType === "parent-child") return ["parent child"];
-  if (photoType === "family") return ["family portrait"];
-  if (photoType === "friends" || photoType === "best-friends") return ["friends", "group portrait"];
-  if (photoType === "group") return ["group portrait"];
-  if (photoType === "solo") return ["portrait"];
-  return [];
+  return getSubjectProfile(photoType).terms;
+}
+
+function getSubjectProfile(photoType = "") {
+  const profiles = {
+    solo: {
+      terms: ["solo portrait", "single person", "portrait"],
+      positive: ["solo", "single person", "portrait", "headshot"],
+      mismatch: ["couple", "family", "group", "friends"]
+    },
+    couple: {
+      terms: ["couple", "romantic couple", "man woman", "two people"],
+      positive: ["couple", "romantic", "man woman", "two people", "pair", "bride groom"],
+      mismatch: ["family of three", "family portrait", "group", "friends", "solo"]
+    },
+    "family-of-three": {
+      terms: ["family of three", "parents child", "three person family", "mother father child"],
+      positive: ["family of three", "parents child", "mother father child", "mom dad child", "three people", "family"],
+      mismatch: ["couple", "romantic", "bride groom", "wedding", "solo", "single portrait"]
+    },
+    "parent-child": {
+      terms: ["parent child", "mother child", "father child"],
+      positive: ["parent child", "mother child", "father child", "family"],
+      mismatch: ["couple", "romantic", "bride groom", "wedding", "solo"]
+    },
+    family: {
+      terms: ["family portrait", "family group"],
+      positive: ["family", "family portrait", "parents", "children"],
+      mismatch: ["couple", "romantic", "bride groom", "solo"]
+    },
+    friends: {
+      terms: ["friends", "friend group", "group portrait"],
+      positive: ["friends", "friend group", "group portrait", "group"],
+      mismatch: ["couple", "romantic", "family", "solo"]
+    },
+    "best-friends": {
+      terms: ["best friends", "two friends", "friend portrait"],
+      positive: ["best friends", "friends", "two friends", "friend portrait"],
+      mismatch: ["romantic couple", "bride groom", "family", "solo"]
+    },
+    group: {
+      terms: ["group portrait", "group photo"],
+      positive: ["group", "group portrait", "group photo"],
+      mismatch: ["couple", "romantic", "solo"]
+    }
+  };
+  return profiles[photoType] || { terms: [], positive: [], mismatch: [] };
 }
 
 function cleanSearchQuery(query) {
@@ -721,7 +767,7 @@ function rankAndSelectImages(candidates, group, limit, context = {}) {
       const key = normalizeImageKey(candidate.imageUrl || candidate.thumbUrl || candidate.pageUrl);
       if (!key || seen.has(key)) return false;
       seen.add(key);
-      return candidate.score > 0;
+      return candidate.score >= getImageDisplayThreshold(group, context);
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
@@ -739,6 +785,14 @@ function rankAndSelectImages(candidates, group, limit, context = {}) {
     }));
 }
 
+function getImageDisplayThreshold(group, context = {}) {
+  const namedWork = inferNamedWork(context.prompt || "", context.plan?.referenceIntent);
+  const groupTitle = group.title || "";
+  if (namedWork && (groupTitle === "Final Visual References" || groupTitle === "Clothing References")) return 8;
+  if (namedWork) return 5;
+  return 3;
+}
+
 function scoreImageCandidate(candidate, group, context = {}) {
   const candidateText = [
     candidate.title,
@@ -752,7 +806,9 @@ function scoreImageCandidate(candidate, group, context = {}) {
     ...(Array.isArray(group.screeningRules) ? group.screeningRules : [])
   ].join(" ").toLowerCase();
   const groupTitle = group.title || "";
-  const subjectTerms = getSubjectSearchTerms(context.photoType).map((term) => term.toLowerCase());
+  const subjectProfile = getSubjectProfile(context.photoType);
+  const subjectTerms = subjectProfile.terms.map((term) => term.toLowerCase());
+  const namedWork = inferNamedWork(context.prompt || "", context.plan?.referenceIntent);
   const prompt = String(context.prompt || "").toLowerCase();
   let score = 0;
 
@@ -774,12 +830,16 @@ function scoreImageCandidate(candidate, group, context = {}) {
   if (containsAny(text, ["stock photo", "shutterstock", "istock", "alamy"])) score -= 1;
 
   if (subjectTerms.length > 0 && containsAny(text, subjectTerms)) score += 4;
-  if (context.photoType === "couple") {
-    if (containsAny(text, ["couple", "romantic", "daisy", "gatsby", "man woman", "bride groom", "two people", "pair"])) score += 5;
-    if (containsAny(text, ["solo", "single portrait", "headshot"])) score -= groupTitle === "Clothing References" ? 1 : 5;
+  if (subjectProfile.positive.length > 0 && containsAny(text, subjectProfile.positive)) score += 5;
+  if (subjectProfile.mismatch.length > 0 && containsAny(candidateText, subjectProfile.mismatch)) {
+    score -= groupTitle === "Clothing References" ? 5 : 10;
+  }
+  if (namedWork) {
+    if (matchesNamedWork(candidateText, namedWork)) score += 8;
+    else score -= groupTitle === "Final Visual References" || groupTitle === "Clothing References" ? 12 : 5;
   }
 
-  if (groupTitle === "Final Visual References" && containsAny(text, ["film still", "movie still", "promotional still", "poster", "scene", "couple"])) score += 4;
+  if (groupTitle === "Final Visual References" && containsAny(text, ["film still", "movie still", "promotional still", "poster", "scene", "cast", "portrait"])) score += 4;
   if (groupTitle === "Clothing References" && containsAny(text, ["costume", "fashion", "outfit", "dress", "tuxedo", "suit", "accessories"])) score += 4;
   if (groupTitle === "Scene References" && containsAny(text, ["interior", "location", "ballroom", "mansion", "party", "set", "scene", "hotel"])) score += 4;
   if (groupTitle === "Prop References" && containsAny(text, ["prop", "accessory", "accessories", "object", "vintage", "antique", "jewelry", "glass", "holder", "walkman", "period"])) score += 4;
@@ -788,12 +848,25 @@ function scoreImageCandidate(candidate, group, context = {}) {
     if (containsAny(candidateText, ["gatsby", "daisy", "roaring twenties", "1920s", "art deco"])) score += 6;
     else score -= groupTitle === "Final Visual References" ? 14 : 3;
   }
+  if (/family\s*guy|\u6076\u641e\u4e4b\u5bb6/.test(prompt)) {
+    if (containsAny(candidateText, ["family guy", "griffin", "peter griffin", "lois griffin", "stewie", "brian griffin"])) score += 8;
+    else score -= groupTitle === "Final Visual References" || groupTitle === "Clothing References" ? 12 : 4;
+  }
   if (prompt.includes("1920")) {
     if (containsAny(candidateText, ["1920", "roaring twenties", "flapper", "art deco"])) score += 4;
     else if (groupTitle !== "Scene References") score -= 3;
   }
 
   return { ...candidate, score };
+}
+
+function matchesNamedWork(value, namedWork) {
+  const text = String(value || "").toLowerCase();
+  const work = String(namedWork || "").toLowerCase();
+  if (!work) return false;
+  if (text.includes(work)) return true;
+  const tokens = queryTokens(work).filter((token) => token.length >= 3);
+  return tokens.length > 0 && tokens.every((token) => text.includes(token));
 }
 
 function normalizeImageKey(value = "") {

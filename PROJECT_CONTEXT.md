@@ -18,14 +18,16 @@ The tool is for beginners using phones, phone remotes, entry-level mirrorless ca
 - The LLM generates the plan, referenceIntent, grouped searchQueries, and screeningRules.
 - The LLM must not browse for images and must not return image URLs.
 - Image search uses Brave Search API only.
-- The backend owns query expansion, Brave image search, rule scoring, dedupe, lightweight subject matching, and grouped top-image assignment.
+- The backend owns subject-aware query expansion, Brave image search, metadata-based rule scoring, named-work matching, subject mismatch penalties, dedupe, and grouped top-image assignment.
 - The frontend renders the final plan, grouped image references, per-reference manual image-search queries, source links, image modal, PNG export, and PDF export.
 
 ## Image Pipeline
 
 ```text
-referenceIntent -> query generation -> Brave image search -> rule scoring -> grouped top images
+referenceIntent -> subject-aware query generation -> Brave image search -> metadata rule scoring -> grouped top images
 ```
+
+The current image scorer is not a vision model and does not ask an LLM to inspect pixels. It ranks Brave candidates from title, page URL, image URL, source, dimensions, matched query, named-work signals, and subject-type signals.
 
 Image groups:
 
