@@ -19,7 +19,7 @@ The tool is for beginners using phones, phone remotes, entry-level mirrorless ca
 - The LLM must not browse for images and must not return image URLs.
 - Image search uses Brave Search API only.
 - The backend owns query expansion, Brave image search, rule scoring, dedupe, lightweight subject matching, and grouped top-image assignment.
-- The frontend renders the final plan, grouped image references, manual image-search queries, source links, image modal, PNG export, and PDF export.
+- The frontend renders the final plan, grouped image references, per-reference manual image-search queries, source links, image modal, PNG export, and PDF export.
 
 ## Image Pipeline
 
@@ -72,7 +72,7 @@ Removed or intentionally unsupported:
 
 - `server.js`: HTTP server, LLM provider config, system prompt in `buildPrompt()`, Brave image pipeline, image proxy, API routes.
 - `public/index.html`: static app shell.
-- `public/app.js`: frontend state, rendering, manual image-search query chips, image preview, exports.
+- `public/app.js`: frontend state, rendering, per-reference manual image-search query chips, image preview, exports.
 - `public/styles.css`: UI styling and export layout.
 - `.env.example`: supported environment variables.
 - `README.md`: public documentation.

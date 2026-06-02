@@ -227,6 +227,7 @@ function renderReferenceGroups(container, groups = [], legacyReferences = []) {
         button.querySelector("span").textContent = entry.item?.title || entry.title || "Reference image";
         button.addEventListener("click", () => openImageModal(previewImages, previewImages.indexOf(entry)));
         sourceLink.href = entry.pageUrl || entry.imageUrl || entry.thumbUrl || "#";
+        appendSearchQueries(tile.querySelector("figcaption"), entry.item || entry);
         gallery.append(tile);
       } else {
         gallery.append(buildSourceCard(entry));
@@ -237,10 +238,10 @@ function renderReferenceGroups(container, groups = [], legacyReferences = []) {
       for (const item of items.slice(0, 4)) {
         const fallback = document.createElement("div");
         fallback.className = "reference-fallback";
-        fallback.innerHTML = `<strong></strong><p></p><small></small>`;
+        fallback.innerHTML = `<strong></strong><p></p>`;
         fallback.querySelector("strong").textContent = formatReferenceTitle(item);
         fallback.querySelector("p").textContent = formatReferenceNote(item);
-        fallback.querySelector("small").textContent = item.searchQuery || "";
+        appendSearchQueries(fallback, item);
         gallery.append(fallback);
       }
     }
@@ -255,52 +256,43 @@ function renderReferenceGroups(container, groups = [], legacyReferences = []) {
       notes.append(note);
     }
 
-    const queryPanel = buildSearchQueryPanel(group);
-    section.append(heading, gallery);
-    if (queryPanel) section.append(queryPanel);
-    section.append(notes);
+    section.append(heading, gallery, notes);
     container.append(section);
   }
 }
 
-function buildSearchQueryPanel(group) {
-  const queries = collectSearchQueries(group);
-  if (queries.length === 0) return null;
-
-  const panel = document.createElement("div");
-  panel.className = "search-query-panel";
-  const title = document.createElement("strong");
-  title.textContent = "Image Search Queries";
-  const hintText = document.createElement("p");
-  hintText.textContent = "Use these queries for manual image search when the preview images are not ideal.";
+function appendSearchQueries(container, item) {
+  const queries = collectSearchQueries(item);
+  if (queries.length === 0) return;
   const list = document.createElement("div");
-  list.className = "search-query-list";
-
+  list.className = "item-query-list";
   for (const query of queries) {
-    const link = document.createElement("a");
-    link.className = "search-query-chip";
-    link.href = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
-    link.target = "_blank";
-    link.rel = "noreferrer";
-    link.textContent = query;
-    link.addEventListener("click", () => copySearchQuery(query));
-    list.append(link);
+    list.append(buildSearchQueryChip(query));
   }
-
-  panel.append(title, hintText, list);
-  return panel;
+  container.append(list);
 }
 
-function collectSearchQueries(group) {
-  const values = [];
-  if (Array.isArray(group.searchQueries)) values.push(...group.searchQueries);
-  for (const item of Array.isArray(group.items) ? group.items : []) {
-    if (item.searchQuery) values.push(item.searchQuery);
-  }
+function buildSearchQueryChip(query) {
+  const link = document.createElement("a");
+  link.className = "search-query-chip";
+  link.href = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
+  link.target = "_blank";
+  link.rel = "noreferrer";
+  link.textContent = query;
+  link.title = "Open this image search query";
+  link.addEventListener("click", () => copySearchQuery(query));
+  return link;
+}
+
+function collectSearchQueries(item) {
+  const values = Array.isArray(item?.manualSearchQueries) && item.manualSearchQueries.length > 0
+    ? item.manualSearchQueries
+    : [item?.searchQuery].filter(Boolean);
   return values
     .map((query) => String(query || "").trim())
     .filter(Boolean)
-    .filter((query, index, array) => array.indexOf(query) === index);
+    .filter((query, index, array) => array.indexOf(query) === index)
+    .slice(0, 5);
 }
 
 async function copySearchQuery(query) {
@@ -314,15 +306,14 @@ async function copySearchQuery(query) {
 
 function buildSourceCard(entry) {
   const item = entry.item || entry;
-  const link = document.createElement("a");
-  link.className = "reference-source-card";
-  link.href = entry.pageUrl || entry.imageUrl || "#";
-  link.target = "_blank";
-  link.rel = "noreferrer";
-  link.innerHTML = `<strong></strong><p></p><small>Open source</small>`;
-  link.querySelector("strong").textContent = formatReferenceTitle(item);
-  link.querySelector("p").textContent = formatReferenceNote(item);
-  return link;
+  const card = document.createElement("div");
+  card.className = "reference-source-card";
+  card.innerHTML = `<strong></strong><p></p><a target="_blank" rel="noreferrer">Open source</a>`;
+  card.querySelector("strong").textContent = formatReferenceTitle(item);
+  card.querySelector("p").textContent = formatReferenceNote(item);
+  card.querySelector("a").href = entry.pageUrl || entry.imageUrl || "#";
+  appendSearchQueries(card, item);
+  return card;
 }
 
 function formatReferenceTitle(item) {
