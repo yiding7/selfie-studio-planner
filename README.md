@@ -180,16 +180,28 @@ Important constraints to preserve unless you intentionally redesign the app:
 - PNG export captures the generated plan as an image.
 - PDF export uses html2pdf.js and keeps source links for reference images when the PDF viewer supports clickable links.
 
-## Deployment Notes
+## Local-First Security Notes
 
-The current app is a small Node web service serving static frontend files and backend API routes. It can run locally with Docker or on a simple Node hosting platform.
+The current app is intended to run locally by default. If you keep `HOST=127.0.0.1` and open the app only on your own machine, heavy abuse-prevention features are not necessary:
+
+- No account system is needed.
+- No CAPTCHA is needed.
+- No public abuse monitoring is needed.
+- No production-grade public rate limiter is needed.
+
+You should still keep the basic safety rules:
+
+- Never commit `.env` or API keys.
+- Keep `HOST=127.0.0.1` for local use.
+- Do not expose the app through a tunnel, reverse proxy, public IP, or hosted URL unless you intentionally want other people to use your API quota.
+- If you later deploy publicly, add rate limiting, origin restrictions, request logging, quota alerts, key rotation, and conservative Image Search query limits.
+
+Local Docker example:
 
 ```bash
 docker build -t selfie-studio-planner .
-docker run --rm -p 5173:5173 --env-file .env selfie-studio-planner
+docker run --rm -p 127.0.0.1:5173:5173 --env-file .env selfie-studio-planner
 ```
-
-For public sharing, add abuse protection before exposing your own API keys to friends or family through a hosted URL. Good next steps include rate limiting, origin restrictions, request logging, and conservative Image Search query limits.
 
 <details>
 <summary id="中文">中文</summary>
@@ -261,6 +273,17 @@ npm start
 API key 只由后端读取，不会进入前端。缺少 `BRAVE_SEARCH_API_KEY` 时，前端会禁用 Image Search，但只要 LLM API 已配置，文本方案仍可生成。
 
 推荐配置见英文 README 的 Environment Configuration 部分。
+
+## 本地优先与安全说明
+
+如果只在本机运行，并保持 `HOST=127.0.0.1`，通常不需要做账号系统、验证码、公开限流或复杂的防滥用监控。
+
+仍然需要注意：
+
+- 不要提交 `.env` 或 API key。
+- 本地使用时保持 `HOST=127.0.0.1`。
+- 不要通过 tunnel、反向代理、公网 IP 或托管 URL 暴露服务，除非你愿意让他人消耗你的 API quota。
+- 如果未来重新考虑公网部署，再补充 rate limiting、origin restrictions、request logging、quota alerts、key rotation，以及更保守的 Image Search query 限制。
 
 ## 修改 System Prompt
 
