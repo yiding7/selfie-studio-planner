@@ -255,8 +255,60 @@ function renderReferenceGroups(container, groups = [], legacyReferences = []) {
       notes.append(note);
     }
 
-    section.append(heading, gallery, notes);
+    const queryPanel = buildSearchQueryPanel(group);
+    section.append(heading, gallery);
+    if (queryPanel) section.append(queryPanel);
+    section.append(notes);
     container.append(section);
+  }
+}
+
+function buildSearchQueryPanel(group) {
+  const queries = collectSearchQueries(group);
+  if (queries.length === 0) return null;
+
+  const panel = document.createElement("div");
+  panel.className = "search-query-panel";
+  const title = document.createElement("strong");
+  title.textContent = "Image Search Queries";
+  const hintText = document.createElement("p");
+  hintText.textContent = "Use these queries for manual image search when the preview images are not ideal.";
+  const list = document.createElement("div");
+  list.className = "search-query-list";
+
+  for (const query of queries) {
+    const link = document.createElement("a");
+    link.className = "search-query-chip";
+    link.href = `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent = query;
+    link.addEventListener("click", () => copySearchQuery(query));
+    list.append(link);
+  }
+
+  panel.append(title, hintText, list);
+  return panel;
+}
+
+function collectSearchQueries(group) {
+  const values = [];
+  if (Array.isArray(group.searchQueries)) values.push(...group.searchQueries);
+  for (const item of Array.isArray(group.items) ? group.items : []) {
+    if (item.searchQuery) values.push(item.searchQuery);
+  }
+  return values
+    .map((query) => String(query || "").trim())
+    .filter(Boolean)
+    .filter((query, index, array) => array.indexOf(query) === index);
+}
+
+async function copySearchQuery(query) {
+  try {
+    await navigator.clipboard?.writeText(query);
+    toast("Search query copied.");
+  } catch {
+    // Opening the search link still gives the user a useful fallback.
   }
 }
 

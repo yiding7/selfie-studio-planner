@@ -33,7 +33,7 @@ referenceIntent -> query generation -> Brave image search -> rule scoring -> gro
 
 Responsibilities:
 
-- **Frontend**: subject selection, prompt input, Image Search toggle, result rendering, image preview modal, PNG/PDF export.
+- **Frontend**: subject selection, prompt input, Image Search toggle, result rendering, grouped manual image-search queries, image preview modal, PNG/PDF export.
 - **LLM backend call**: generates the theme plan, reference intent, grouped search queries, and screening rules. It does not browse for images and must not return image URLs.
 - **Image Search API**: Brave Search API returns candidate images.
 - **Backend rules**: generate/expand queries, score image quality, filter obvious mismatches, lightly match subject type, dedupe, and assign top images to the four groups.
@@ -239,7 +239,7 @@ referenceIntent -> query generation -> Brave image search -> rule scoring -> gro
 
 职责划分：
 
-- **前端**：主体选择、prompt 输入、图片搜索开关、结果展示、图片预览、PNG/PDF 导出。
+- **前端**：主体选择、prompt 输入、图片搜索开关、结果展示、分组手动搜图 query、图片预览、PNG/PDF 导出。
 - **LLM 后端调用**：生成主题方案、参考意图、分组搜索 query 和筛选规则。LLM 不联网找图，也不返回图片 URL。
 - **Image Search API**：Brave Search API 返回候选图片。
 - **后端规则**：扩展 query、评分、过滤明显不匹配结果、轻量主体匹配、去重，并把 top images 分配到四个分组。

@@ -495,10 +495,12 @@ function flattenReferenceGroups(groups) {
 }
 
 async function searchImagesForGroup(group, limit = 4, context = {}) {
+  const queries = buildProviderImageQueries(group, context);
+  if (queries.length > 0) group.searchQueries = queries;
   if (!context.imageSearch) return [];
   const provider = getImageSearchProviderConfig();
   if (!provider) return [];
-  return searchProviderImagesForGroup(group, limit, provider, context);
+  return searchProviderImagesForGroup(group, limit, provider, context, queries);
 }
 
 function getImageSearchProviderConfig() {
@@ -519,8 +521,9 @@ function getImageSearchMissingConfigMessage() {
   return "Image search is not configured. Set BRAVE_SEARCH_API_KEY in .env and restart the server.";
 }
 
-async function searchProviderImagesForGroup(group, limit, provider, context) {
-  const queries = buildProviderImageQueries(group, context).slice(0, getImageSearchQueryLimit(provider));
+async function searchProviderImagesForGroup(group, limit, provider, context, availableQueries = []) {
+  const queries = (availableQueries.length > 0 ? availableQueries : buildProviderImageQueries(group, context))
+    .slice(0, getImageSearchQueryLimit(provider));
   const candidates = [];
 
   for (const query of queries) {
