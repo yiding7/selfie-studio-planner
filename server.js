@@ -9,7 +9,7 @@ await loadEnv();
 const port = Number(process.env.PORT || 5173);
 const host = process.env.HOST || "127.0.0.1";
 
-createServer((req, res) => {
+const server = createServer((req, res) => {
   if (req.method === "POST" && req.url === "/api/generate") {
     handleGenerate(req, res);
     return;
@@ -29,6 +29,17 @@ createServer((req, res) => {
   }
   res.writeHead(405);
   res.end("Method not allowed");
-}).listen(port, host, () => {
+});
+
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`\nPort ${port} is already in use. Kill the previous process first:\n  lsof -ti:${port} | xargs kill\n`);
+    process.exit(1);
+  } else {
+    throw err;
+  }
+});
+
+server.listen(port, host, () => {
   console.log(`Selfie Studio Planner is running at http://127.0.0.1:${port}`);
 });

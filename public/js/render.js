@@ -217,37 +217,70 @@ function renderResearchContext(container, ctx) {
   container.replaceChildren();
   if (!ctx || typeof ctx !== "object") return;
 
-  const FIELD_LABELS = [
-    ["namedWork", "Named Work"],
-    ["visualStyle", "Visual Style"],
-    ["costumeNotes", "Costume Facts"],
-    ["propNotes", "Prop Facts"],
-    ["sceneNotes", "Scene Facts"],
-    ["lightingNotes", "Lighting"],
-    ["poseNotes", "Pose & Expression"],
-    ["colorGradeNotes", "Color Grade"],
+  const ARRAY_FIELDS = [
+    ["costumeNotes", "Costume"],
+    ["propNotes", "Props"],
+    ["sceneNotes", "Scenes"],
     ["searchHints", "Search Hints"]
   ];
+  const TEXT_FIELDS = [
+    ["lightingNotes", "Lighting"],
+    ["poseNotes", "Pose & Expression"],
+    ["colorGradeNotes", "Color Grade"]
+  ];
 
-  const rows = [];
-  for (const [key, label] of FIELD_LABELS) {
-    const value = ctx[key];
-    if (!value) continue;
-    if (Array.isArray(value) && value.length === 0) continue;
-    rows.push({ label, value });
-  }
-  if (rows.length === 0) return;
+  const hasContent = [ctx.visualStyle, ...ARRAY_FIELDS.map(([k]) => ctx[k]), ...TEXT_FIELDS.map(([k]) => ctx[k])]
+    .some((v) => v && (Array.isArray(v) ? v.length > 0 : true));
+  if (!hasContent) return;
 
   const details = document.createElement("details");
   details.className = "research-context";
+  details.open = true;
+
   const summary = document.createElement("summary");
   summary.className = "research-context-summary";
-  summary.innerHTML = `<span class="research-badge">Research</span> ${ctx.namedWork ? ctx.namedWork : "Background context"} — expand to review verified facts`;
+  const badge = document.createElement("span");
+  badge.className = "research-badge";
+  badge.textContent = "Research";
+  const titleEl = document.createElement("span");
+  titleEl.className = "research-title";
+  titleEl.textContent = ctx.namedWork || "Background Context";
+  summary.append(badge, titleEl);
   details.append(summary);
 
   const body = document.createElement("div");
   body.className = "research-context-body";
-  for (const { label, value } of rows) {
+
+  if (ctx.visualStyle) {
+    const intro = document.createElement("p");
+    intro.className = "research-visual-style";
+    intro.textContent = ctx.visualStyle;
+    body.append(intro);
+  }
+
+  for (const [key, label] of ARRAY_FIELDS) {
+    const value = ctx[key];
+    if (!Array.isArray(value) || value.length === 0) continue;
+    const row = document.createElement("div");
+    row.className = "research-row";
+    const labelEl = document.createElement("span");
+    labelEl.className = "research-label";
+    labelEl.textContent = label;
+    const valueEl = document.createElement("span");
+    valueEl.className = "research-value research-tags";
+    for (const item of value) {
+      const tag = document.createElement("span");
+      tag.className = "research-fact-tag";
+      tag.textContent = item;
+      valueEl.append(tag);
+    }
+    row.append(labelEl, valueEl);
+    body.append(row);
+  }
+
+  for (const [key, label] of TEXT_FIELDS) {
+    const value = ctx[key];
+    if (!value) continue;
     const row = document.createElement("div");
     row.className = "research-row";
     const labelEl = document.createElement("span");
@@ -255,10 +288,11 @@ function renderResearchContext(container, ctx) {
     labelEl.textContent = label;
     const valueEl = document.createElement("span");
     valueEl.className = "research-value";
-    valueEl.textContent = Array.isArray(value) ? value.join(" · ") : value;
+    valueEl.textContent = value;
     row.append(labelEl, valueEl);
     body.append(row);
   }
+
   details.append(body);
   container.append(details);
 }

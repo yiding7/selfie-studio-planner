@@ -1214,8 +1214,6 @@ textarea:focus {
   align-items: center;
   gap: 10px;
   padding: 11px 16px;
-  color: var(--muted);
-  font-size: 13px;
   cursor: pointer;
   list-style: none;
   user-select: none;
@@ -1237,6 +1235,13 @@ textarea:focus {
   transform: rotate(90deg);
 }
 
+.research-title {
+  color: #2b2427;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
 .research-badge {
   padding: 2px 7px;
   border-radius: 999px;
@@ -1252,7 +1257,7 @@ textarea:focus {
 .research-context-body {
   display: grid;
   gap: 1px;
-  padding: 0 16px 14px;
+  padding: 14px 16px;
   border-top: 1px solid rgba(142, 2, 32, 0.1);
 }
 
@@ -1281,6 +1286,33 @@ textarea:focus {
 
 .research-value {
   color: #403b41;
+}
+
+.research-visual-style {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: rgba(142, 2, 32, 0.04);
+  border-left: 2px solid rgba(142, 2, 32, 0.25);
+  border-radius: 0 6px 6px 0;
+  color: #403b41;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.research-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.research-fact-tag {
+  display: inline-block;
+  padding: 3px 9px;
+  background: rgba(43, 36, 39, 0.06);
+  border-radius: 999px;
+  color: #403b41;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .loading-panel,
