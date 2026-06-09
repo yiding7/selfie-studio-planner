@@ -4,7 +4,7 @@ import { toast } from "./toast.js";
 import { exportPdf, exportPng } from "./export.js";
 import { openImageModal, proxiedImageUrl } from "./modal.js";
 
-function renderResult(plan, mode, generate) {
+function renderResult(plan, backgroundContext, mode, generate) {
   const fragment = template.content.cloneNode(true);
   const exportCard = fragment.querySelector("#export-card");
   fragment.querySelector('[data-field="theme"]').textContent = plan.theme;
@@ -36,6 +36,8 @@ function renderResult(plan, mode, generate) {
 
   fillList(fragment.querySelector('[data-field="shoppingList"]'), plan.shoppingList);
   fillList(fragment.querySelector('[data-field="shotList"]'), plan.shotList);
+
+  renderResearchContext(fragment.querySelector('[data-field="research-context"]'), backgroundContext);
 
   const reroll = fragment.querySelector('[data-action="reroll"]');
   fragment.querySelector('[data-action="regenerate"]').addEventListener("click", () => generate(state.lastRequest?.mode || mode));
@@ -208,6 +210,57 @@ function fillList(list, items = []) {
     li.textContent = item;
     list.append(li);
   }
+}
+
+function renderResearchContext(container, ctx) {
+  if (!container) return;
+  container.replaceChildren();
+  if (!ctx || typeof ctx !== "object") return;
+
+  const FIELD_LABELS = [
+    ["namedWork", "Named Work"],
+    ["visualStyle", "Visual Style"],
+    ["costumeNotes", "Costume Facts"],
+    ["propNotes", "Prop Facts"],
+    ["sceneNotes", "Scene Facts"],
+    ["lightingNotes", "Lighting"],
+    ["poseNotes", "Pose & Expression"],
+    ["colorGradeNotes", "Color Grade"],
+    ["searchHints", "Search Hints"]
+  ];
+
+  const rows = [];
+  for (const [key, label] of FIELD_LABELS) {
+    const value = ctx[key];
+    if (!value) continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    rows.push({ label, value });
+  }
+  if (rows.length === 0) return;
+
+  const details = document.createElement("details");
+  details.className = "research-context";
+  const summary = document.createElement("summary");
+  summary.className = "research-context-summary";
+  summary.innerHTML = `<span class="research-badge">Research</span> ${ctx.namedWork ? ctx.namedWork : "Background context"} — expand to review verified facts`;
+  details.append(summary);
+
+  const body = document.createElement("div");
+  body.className = "research-context-body";
+  for (const { label, value } of rows) {
+    const row = document.createElement("div");
+    row.className = "research-row";
+    const labelEl = document.createElement("span");
+    labelEl.className = "research-label";
+    labelEl.textContent = label;
+    const valueEl = document.createElement("span");
+    valueEl.className = "research-value";
+    valueEl.textContent = Array.isArray(value) ? value.join(" · ") : value;
+    row.append(labelEl, valueEl);
+    body.append(row);
+  }
+  details.append(body);
+  container.append(details);
 }
 
 export { renderResult };

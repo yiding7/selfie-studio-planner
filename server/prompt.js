@@ -1,15 +1,19 @@
+import { formatBackgroundContext } from "./research.js";
+
 function detectOutputLanguage(prompt = "") {
   return /[\u3400-\u9fff]/u.test(prompt) ? "Simplified Chinese" : "English";
 }
 
-function buildPrompt({ photoType, prompt, mode }) {
+function buildPrompt({ photoType, prompt, mode, backgroundContext }) {
   const outputLanguage = detectOutputLanguage(prompt);
   const userIdea = prompt?.trim()
     ? `User theme prompt: ${prompt.trim()}`
     : "The user did not provide a theme. Choose a random but practical low-budget self-shoot concept, similar to an I'm Feeling Lucky dice roll.";
 
+  const researchBlock = formatBackgroundContext(backgroundContext);
+
   return `You are a practical creative director for non-professional self portraits, couple photos, family photos, and friend-group portraits.
-Create a low-budget self-shoot plan for the subject type "${photoType}". ${userIdea}
+${researchBlock}Create a low-budget self-shoot plan for the subject type "${photoType}". ${userIdea}
 
 Core requirements:
 - Required output language for all user-facing JSON values: ${outputLanguage}. This is mandatory. If the required output language is Simplified Chinese, write all titles, notes, section text, shopping lists, and shot lists in Simplified Chinese. Keep JSON field names and referenceGroups titles exactly as specified in English regardless of content language.

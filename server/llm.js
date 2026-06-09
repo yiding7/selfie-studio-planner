@@ -1,4 +1,5 @@
 import { buildPrompt, extractJson } from "./prompt.js";
+import { buildResearchPrompt, extractResearchJson } from "./research.js";
 
 async function callModel(payload) {
   const provider = getProviderConfig();
@@ -7,15 +8,32 @@ async function callModel(payload) {
     error.statusCode = 503;
     throw error;
   }
+  const temperature = payload.mode === "lucky" ? 0.95 : 0.7;
+  const maxTokens = Number(process.env.LLM_MAX_TOKENS || process.env.ANTHROPIC_MAX_TOKENS || 1800);
+  const text = await callLLMText(buildPrompt(payload), { temperature, maxTokens, provider });
+  return extractJson(text);
+}
 
-  if (provider.protocol === "chat") {
-    return callChatCompletions(payload, provider);
+async function callResearchAgent({ photoType, prompt }) {
+  const provider = getProviderConfig();
+  if (!provider.apiKey) return {};
+  try {
+    const text = await callLLMText(buildResearchPrompt({ photoType, prompt }), {
+      temperature: 0.3,
+      maxTokens: 900,
+      provider
+    });
+    return extractResearchJson(text);
+  } catch {
+    return {};
   }
-  if (provider.protocol === "anthropic") {
-    return callAnthropicMessages(payload, provider);
-  }
+}
 
-  return callResponses(payload, provider);
+async function callLLMText(promptText, { temperature = 0.7, maxTokens, provider } = {}) {
+  const p = provider || getProviderConfig();
+  if (p.protocol === "chat") return callChatText(promptText, temperature, p);
+  if (p.protocol === "anthropic") return callAnthropicText(promptText, temperature, maxTokens, p);
+  return callResponsesText(promptText, temperature, p);
 }
 
 function getProviderConfig() {
@@ -45,7 +63,7 @@ function getProviderConfig() {
       name: "anthropic",
       apiKey: process.env.ANTHROPIC_API_KEY,
       baseUrl: process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com/v1",
-      model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929",
+      model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
       protocol: "anthropic"
     };
   }
@@ -81,7 +99,7 @@ function getProviderDefaults(provider, protocol) {
     return { baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", model: "gemini-2.5-flash" };
   }
   if (provider === "anthropic" || provider === "claude" || protocol === "anthropic") {
-    return { baseUrl: "https://api.anthropic.com/v1", model: "claude-sonnet-4-5-20250929" };
+    return { baseUrl: "https://api.anthropic.com/v1", model: "claude-sonnet-4-6" };
   }
   if (protocol === "chat") {
     return { baseUrl: "https://api.openai.com/v1", model: "gpt-4.1-mini" };
@@ -93,7 +111,7 @@ function normalizeInferenceBaseUrl(baseUrl) {
   return baseUrl.replace(/\/+$/, "").replace(/\/management$/, "");
 }
 
-async function callChatCompletions(payload, provider) {
+async function callChatText(promptText, temperature, provider) {
   const response = await fetch(`${normalizeInferenceBaseUrl(provider.baseUrl)}/chat/completions`, {
     method: "POST",
     headers: {
@@ -103,8 +121,8 @@ async function callChatCompletions(payload, provider) {
     body: JSON.stringify({
       model: provider.model,
       ...getModelRoutingBody(provider),
-      messages: [{ role: "user", content: buildPrompt(payload) }],
-      temperature: payload.mode === "lucky" ? 0.95 : 0.7
+      messages: [{ role: "user", content: promptText }],
+      temperature
     })
   });
 
@@ -114,8 +132,7 @@ async function callChatCompletions(payload, provider) {
   }
 
   const data = await response.json();
-  const text = data.choices?.[0]?.message?.content || "";
-  return extractJson(text);
+  return data.choices?.[0]?.message?.content || "";
 }
 
 function getModelRoutingBody(provider) {
@@ -140,7 +157,7 @@ function getZenMuxRoutingModels() {
     .filter(Boolean);
 }
 
-async function callAnthropicMessages(payload, provider) {
+async function callAnthropicText(promptText, temperature, maxTokens, provider) {
   const response = await fetch(`${normalizeInferenceBaseUrl(provider.baseUrl)}/messages`, {
     method: "POST",
     headers: {
@@ -150,9 +167,9 @@ async function callAnthropicMessages(payload, provider) {
     },
     body: JSON.stringify({
       model: provider.model,
-      max_tokens: Number(process.env.LLM_MAX_TOKENS || process.env.ANTHROPIC_MAX_TOKENS || 1800),
-      temperature: payload.mode === "lucky" ? 0.95 : 0.7,
-      messages: [{ role: "user", content: buildPrompt(payload) }]
+      max_tokens: maxTokens || Number(process.env.LLM_MAX_TOKENS || process.env.ANTHROPIC_MAX_TOKENS || 1800),
+      temperature,
+      messages: [{ role: "user", content: promptText }]
     })
   });
 
@@ -162,11 +179,10 @@ async function callAnthropicMessages(payload, provider) {
   }
 
   const data = await response.json();
-  const text = data.content?.map((part) => part.text || "").join("\n") || "";
-  return extractJson(text);
+  return data.content?.map((part) => part.text || "").join("\n") || "";
 }
 
-async function callResponses(payload, provider) {
+async function callResponsesText(promptText, temperature, provider) {
   const response = await fetch(`${normalizeInferenceBaseUrl(provider.baseUrl)}/responses`, {
     method: "POST",
     headers: {
@@ -175,8 +191,8 @@ async function callResponses(payload, provider) {
     },
     body: JSON.stringify({
       model: provider.model,
-      input: buildPrompt(payload),
-      temperature: payload.mode === "lucky" ? 0.95 : 0.7
+      input: promptText,
+      temperature
     })
   });
 
@@ -186,10 +202,9 @@ async function callResponses(payload, provider) {
   }
 
   const data = await response.json();
-  const text = data.output_text
+  return data.output_text
     || data.output?.flatMap((item) => item.content || []).map((part) => part.text || "").join("\n")
     || "";
-  return extractJson(text);
 }
 
-export { callModel, getProviderConfig };
+export { callModel, callResearchAgent, callLLMText, getProviderConfig };

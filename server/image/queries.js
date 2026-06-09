@@ -8,6 +8,10 @@ function buildProviderImageQueries(group, context = {}) {
   const groupTitle = group.title || "";
   const expanded = [];
 
+  const researchHints = Array.isArray(context.backgroundContext?.searchHints)
+    ? context.backgroundContext.searchHints.map(cleanSearchQuery).filter(Boolean)
+    : [];
+
   if (namedWork) {
     if (groupTitle === "Final Visual References") {
       expanded.push(
@@ -54,8 +58,8 @@ function buildProviderImageQueries(group, context = {}) {
   }
 
   const orderedQueries = groupTitle === "Prop References" || groupTitle === "Scene References"
-    ? [...expandedBaseQueries, ...expanded]
-    : [...expanded, ...expandedBaseQueries];
+    ? [...researchHints, ...expandedBaseQueries, ...expanded]
+    : [...researchHints, ...expanded, ...expandedBaseQueries];
 
   return orderedQueries
     .map(cleanSearchQuery)

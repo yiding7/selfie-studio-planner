@@ -9,3 +9,6 @@ export const result = document.querySelector("#result");
 export const template = document.querySelector("#result-template");
 export const imageModal = document.querySelector("#image-modal");
 export const loadingOverlay = document.querySelector("#loading-overlay");
+export const loadingHeading = document.querySelector("#loading-heading");
+export const loadingDetail = document.querySelector("#loading-detail");
+export const loadingPhaseEls = document.querySelectorAll(".loading-panel .phase");

@@ -1,6 +1,7 @@
 import { photoTypes, allowedImageProtocols } from "./config.js";
 import { sendJson, sendEmpty, readBody } from "./http.js";
-import { callModel, getProviderConfig } from "./llm.js";
+import { callModel, callResearchAgent, getProviderConfig } from "./llm.js";
+import { shouldRunResearch } from "./research.js";
 import { hydrateReferenceImages, getImageSearchProviderConfig, getImageSearchMissingConfigMessage } from "./image-search.js";
 
 function getPublicConfig() {
@@ -39,9 +40,13 @@ async function handleGenerate(req, res) {
       return;
     }
 
-    const plan = await callModel({ photoType, prompt, mode });
-    await hydrateReferenceImages(plan, { imageSearch, photoType, prompt });
-    sendJson(res, 200, { plan, generatedAt: new Date().toISOString() });
+    const backgroundContext = shouldRunResearch(mode, prompt)
+      ? await callResearchAgent({ photoType, prompt })
+      : {};
+
+    const plan = await callModel({ photoType, prompt, mode, backgroundContext });
+    await hydrateReferenceImages(plan, { imageSearch, photoType, prompt, backgroundContext });
+    sendJson(res, 200, { plan, backgroundContext, generatedAt: new Date().toISOString() });
   } catch (error) {
     sendJson(res, error.statusCode || 500, { error: error.message || "Generation failed. Please try again later." });
   }

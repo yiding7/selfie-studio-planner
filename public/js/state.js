@@ -1,6 +1,7 @@
 export const state = {
   lastRequest: null,
   lastPlan: null,
+  lastBackgroundContext: {},
   modalImages: [],
   modalIndex: 0,
   publicConfig: {

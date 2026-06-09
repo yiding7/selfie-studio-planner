@@ -1,6 +1,7 @@
 import { getImageSearchProviderConfig, searchImageApi } from "./provider.js";
 import { assignManualSearchQueries, buildProviderImageQueries } from "./queries.js";
 import { rankAndSelectImages } from "./scoring.js";
+import { rerankImageCandidates } from "./reranker.js";
 
 async function hydrateReferenceImages(plan, options = {}) {
   const groups = normalizeReferenceGroups(plan);
@@ -87,7 +88,10 @@ async function searchProviderImagesForGroup(group, limit, provider, context, ava
     }
   }
 
-  const selected = rankAndSelectImages(candidates, group, limit, context);
+  const pool = rankAndSelectImages(candidates, group, Math.max(limit * 3, 12), context);
+  const reranked = await rerankImageCandidates(pool, group, context);
+  const selected = reranked.slice(0, limit);
+
   if (context.imageSearch && selected.length === 0 && !group.imageSearchError) {
     group.imageSearchError = "Image search returned candidates, but none passed the relevance filter. Manual queries are still available.";
   }

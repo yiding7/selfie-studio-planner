@@ -66,8 +66,15 @@ More detail helps the plan fit your situation."></textarea>
     <div id="loading-overlay" class="loading-overlay" aria-live="polite" aria-hidden="true">
       <div class="loading-panel">
         <span class="spinner" aria-hidden="true"></span>
-        <strong>Generating shoot plan</strong>
-        <p>Organizing the theme, references, outfits, props, lighting, and shot advice</p>
+        <strong id="loading-heading">Researching your theme</strong>
+        <p id="loading-detail">Gathering visual context, period facts, and verified references</p>
+        <div class="loading-phases" aria-hidden="true">
+          <span class="phase active" data-phase="0">Research</span>
+          <span class="phase-sep">→</span>
+          <span class="phase" data-phase="1">Plan</span>
+          <span class="phase-sep">→</span>
+          <span class="phase" data-phase="2">Images</span>
+        </div>
       </div>
     </div>
 
@@ -84,6 +91,8 @@ More detail helps the plan fit your situation."></textarea>
           <button class="button ghost" type="button" data-action="pdf">Export PDF</button>
         </div>
       </div>
+
+      <div data-field="research-context"></div>
 
       <div id="export-card" class="export-card">
         <div class="reference-groups" data-field="references"></div>
