@@ -1,8 +1,15 @@
 function buildResearchPrompt({ photoType, prompt }) {
+  const isChinese = /[㐀-鿿]/u.test(prompt);
+  const langInstruction = isChinese
+    ? "Required output language: Simplified Chinese. Write all JSON string values in Simplified Chinese. Keep JSON field names in English. searchHints must remain in English — they are used as image search queries."
+    : "Required output language: English.";
+
   return `You are a visual research specialist for photography shoot planning. Research the visual context behind this shoot theme and return verified factual information for a creative director.
 
 Subject type: ${photoType}
 Shoot theme: ${prompt}
+
+${langInstruction}
 
 Return only concrete verified facts — confirmed visual style, period-accurate costume details, era-safe props, real scene types, confirmed lighting style, pose vocabulary, color grade direction. Do not plan the shoot. Do not invent citations, brand names, or historical facts. Label uncertain items as approximate.
 
@@ -16,7 +23,7 @@ Return JSON only:
   "lightingNotes": "Confirmed lighting character: hard or soft quality, main direction, contrast level, color temperature",
   "poseNotes": "Pose vocabulary, body language, and expression style confirmed for this reference or era",
   "colorGradeNotes": "Confirmed post-processing direction: overall tone, warmth, grain, contrast, saturation, vignette",
-  "searchHints": ["Specific verified search term useful for finding real reference images", "..."]
+  "searchHints": ["Specific verified English search term useful for finding real reference images", "..."]
 }`;
 }
 

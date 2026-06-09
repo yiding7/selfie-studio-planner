@@ -100,7 +100,8 @@ Do not invent citations. If uncertain, say the reference is approximate and prov
 function extractJson(text) {
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("Model did not return JSON.");
-  return JSON.parse(match[0]);
+  const cleaned = match[0].replace(/,(\s*[}\]])/g, "$1");
+  return JSON.parse(cleaned);
 }
 
 export { buildPrompt, extractJson };

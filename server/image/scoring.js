@@ -27,10 +27,9 @@ function rankAndSelectImages(candidates, group, limit, context = {}) {
 }
 
 function getImageDisplayThreshold(group, context = {}) {
-  const namedWork = inferNamedWork(context.prompt || "", context.plan?.referenceIntent);
+  const namedWork = inferNamedWork(context.prompt || "", context.plan?.referenceIntent, context.backgroundContext);
   const groupTitle = group.title || "";
   if (namedWork && (groupTitle === "Final Visual References" || groupTitle === "Clothing References")) return 8;
-  if (namedWork) return 5;
   return 3;
 }
 
@@ -49,7 +48,7 @@ function scoreImageCandidate(candidate, group, context = {}) {
   const groupTitle = group.title || "";
   const subjectProfile = getSubjectProfile(context.photoType);
   const subjectTerms = subjectProfile.terms.map((term) => term.toLowerCase());
-  const namedWork = inferNamedWork(context.prompt || "", context.plan?.referenceIntent);
+  const namedWork = inferNamedWork(context.prompt || "", context.plan?.referenceIntent, context.backgroundContext);
   const prompt = String(context.prompt || "").toLowerCase();
   let score = 0;
 
@@ -77,7 +76,9 @@ function scoreImageCandidate(candidate, group, context = {}) {
   }
   if (namedWork) {
     if (matchesNamedWork(candidateText, namedWork)) score += 8;
-    else score -= groupTitle === "Final Visual References" || groupTitle === "Clothing References" ? 12 : 5;
+    else if (groupTitle === "Final Visual References") score -= 12;
+    else if (groupTitle === "Clothing References") score -= 8;
+    // Prop and Scene groups intentionally search generic era/style content — no named-work penalty
   }
 
   if (groupTitle === "Final Visual References" && containsAny(text, ["film still", "movie still", "promotional still", "poster", "scene", "cast", "portrait"])) score += 4;

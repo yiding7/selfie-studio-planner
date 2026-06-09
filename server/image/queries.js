@@ -1,7 +1,7 @@
 function buildProviderImageQueries(group, context = {}) {
   const baseQueries = buildImageSearchCandidates(group);
   const prompt = String(context.prompt || "");
-  const namedWork = inferNamedWork(prompt, context.plan?.referenceIntent);
+  const namedWork = inferNamedWork(prompt, context.plan?.referenceIntent, context.backgroundContext);
   const subjectTerms = getSubjectSearchTerms(context.photoType);
   const subjectLabel = subjectTerms[0] || "portrait";
   const era = inferEraPrompt(prompt);
@@ -67,15 +67,28 @@ function buildProviderImageQueries(group, context = {}) {
     .filter((query, index, array) => array.indexOf(query) === index);
 }
 
-function inferNamedWork(prompt, referenceIntent = "") {
+function inferNamedWork(prompt, referenceIntent = "", backgroundContext = {}) {
+  if (backgroundContext?.namedWork) {
+    return extractEnglishTitle(backgroundContext.namedWork);
+  }
   const bracketed = prompt.match(/\u300a([^\u300b]+)\u300b/u);
   const raw = bracketed?.[1] || "";
   const text = `${raw} ${prompt}`.toLowerCase();
   if (/gatsby/.test(text)) return "The Great Gatsby";
   if (/family\s*guy|\u6076\u641e\u4e4b\u5bb6/.test(text)) return "Family Guy";
   if (raw) return raw;
-  if (referenceIntent === "named_work") return prompt.replace(/[\u300a\u300b]/gu, "").trim();
   return "";
+}
+
+function extractEnglishTitle(namedWork) {
+  const str = String(namedWork || "");
+  // "\u82b1\u6837\u5e74\u534e (In the Mood for Love, 2000)" \u2192 prefer the English part in parentheses
+  const parenMatch = str.match(/[\uff08(]([^\uff09)]+)/);
+  if (parenMatch) {
+    const inner = parenMatch[1].replace(/,.*/, "").trim();
+    if (/^[a-zA-Z\s']+$/.test(inner) && inner.length >= 3) return inner;
+  }
+  return str.split(/\s*[,(\uff08[\u3010]/)[0].trim();
 }
 
 function inferEraPrompt(prompt) {
@@ -162,7 +175,7 @@ function assignManualSearchQueries(group, groupQueries, context = {}) {
   const prompt = String(context.prompt || "");
   const promptTokens = queryTokens(prompt);
   const subjectTerms = getSubjectSearchTerms(context.photoType);
-  const namedWork = inferNamedWork(prompt, context.plan?.referenceIntent);
+  const namedWork = inferNamedWork(prompt, context.plan?.referenceIntent, context.backgroundContext);
   const sharedQueries = Array.isArray(groupQueries) ? groupQueries : [];
 
   for (const item of items) {
@@ -243,7 +256,6 @@ function buildImageSearchCandidates(group) {
     values.push(item.searchQuery, item.title);
     if (Array.isArray(item.keywords)) values.push(item.keywords.join(" "));
   }
-  values.push(group.description, group.title);
   return values
     .map((value) => String(value || "").trim())
     .filter(Boolean)
@@ -255,6 +267,7 @@ export {
   buildProviderImageQueries,
   cleanSearchQuery,
   containsAny,
+  extractEnglishTitle,
   getSubjectProfile,
   getSubjectSearchTerms,
   inferNamedWork,
